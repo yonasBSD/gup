@@ -24,11 +24,10 @@ import (
 )
 
 var (
-	getLatestVer        = goutil.GetLatestVer             //nolint:gochecknoglobals // swapped in tests
-	installLatest       = goutil.InstallLatest            //nolint:gochecknoglobals // swapped in tests
-	installMainOrMaster = goutil.InstallMainOrMaster      //nolint:gochecknoglobals // swapped in tests
-	installByVersionUpd = goutil.Install                  //nolint:gochecknoglobals // swapped in tests
-	detectModulePathErr = goutil.DetectModulePathMismatch //nolint:gochecknoglobals // swapped in tests
+	getLatestVer        = goutil.GetLatestVer        //nolint:gochecknoglobals // swapped in tests
+	installLatest       = goutil.InstallLatest       //nolint:gochecknoglobals // swapped in tests
+	installMainOrMaster = goutil.InstallMainOrMaster //nolint:gochecknoglobals // swapped in tests
+	installByVersionUpd = goutil.Install             //nolint:gochecknoglobals // swapped in tests
 )
 
 const latestKeyword = "latest"
@@ -390,7 +389,7 @@ func installWithSelectedVersion(importPath string, channel goutil.UpdateChannel)
 }
 
 func resolveModulePathChange(pkg goutil.Package, err error) (goutil.Package, bool) {
-	declaredPath, requiredPath, ok := detectModulePathErr(err)
+	declaredPath, requiredPath, ok := goutil.DetectModulePathMismatch(err)
 	if !ok {
 		return pkg, false
 	}
