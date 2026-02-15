@@ -86,13 +86,15 @@ func (p *Package) CurrentToLatestStr() string {
 	}
 	var ret string
 	if p.Version.Current != p.Version.Latest {
-		ret += color.GreenString(p.Version.Current) + " to " + color.YellowString(p.Version.Latest)
+		currentVer, latestVer := colorVersionPair(p.Version.Current, p.Version.Latest, "v")
+		ret += currentVer + " to " + latestVer
 	}
 	if p.GoVersion.Current != p.GoVersion.Latest {
 		if len(ret) != 0 {
 			ret += ", "
 		}
-		ret += color.GreenString(p.GoVersion.Current) + " to " + color.YellowString(p.GoVersion.Latest)
+		currentGo, latestGo := colorVersionPair(p.GoVersion.Current, p.GoVersion.Latest, "go")
+		ret += currentGo + " to " + latestGo
 	}
 	return ret
 }
@@ -103,29 +105,42 @@ func (p *Package) VersionCheckResultStr() string {
 		return "Already up-to-date: " + color.GreenString(p.Version.Current) + " / " + color.GreenString(p.GoVersion.Current)
 	}
 	var ret string
-	// TODO: yellow only if latest > current
+	currentVer, latestVer := colorVersionPair(p.Version.Current, p.Version.Latest, "v")
 	if p.Version.Current == p.Version.Latest {
-		ret += color.GreenString(p.Version.Current)
+		ret += currentVer
 	} else {
-		ret += "current: " + color.GreenString(p.Version.Current) + ", latest: "
-		if p.IsPackageUpToDate() {
-			ret += color.GreenString(p.Version.Latest)
-		} else {
-			ret += color.YellowString(p.Version.Latest)
-		}
+		ret += "current: " + currentVer + ", latest: " + latestVer
 	}
 	ret += " / "
+	currentGo, latestGo := colorVersionPair(p.GoVersion.Current, p.GoVersion.Latest, "go")
 	if p.GoVersion.Current == p.GoVersion.Latest {
-		ret += color.GreenString(p.GoVersion.Current)
+		ret += currentGo
 	} else {
-		ret += "current: " + color.GreenString(p.GoVersion.Current) + ", installed: "
-		if p.IsGoUpToDate() {
-			ret += color.GreenString(p.GoVersion.Latest)
-		} else {
-			ret += color.YellowString(p.GoVersion.Latest)
-		}
+		ret += "current: " + currentGo + ", installed: " + latestGo
 	}
 	return ret
+}
+
+func colorVersionPair(current, latest, prefix string) (string, string) {
+	currentUpToDate := versionUpToDate(
+		strings.TrimPrefix(current, prefix),
+		strings.TrimPrefix(latest, prefix),
+	)
+	latestUpToDate := versionUpToDate(
+		strings.TrimPrefix(latest, prefix),
+		strings.TrimPrefix(current, prefix),
+	)
+
+	switch {
+	case currentUpToDate && latestUpToDate:
+		return color.GreenString(current), color.GreenString(latest)
+	case currentUpToDate:
+		return color.GreenString(current), color.YellowString(latest)
+	case latestUpToDate:
+		return color.YellowString(current), color.GreenString(latest)
+	default:
+		return color.YellowString(current), color.YellowString(latest)
+	}
 }
 
 // IsPackageUpToDate checks if the Package (set by the package author) version is up to date.
