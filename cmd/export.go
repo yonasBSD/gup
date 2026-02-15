@@ -13,14 +13,12 @@ func newExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export the binary names under $GOPATH/bin and their path info. to gup.json.",
-		Long: `Export the binary names under $GOPATH/bin and their path info. to gup.json.
+	Long: `Export the binary names under $GOPATH/bin and their path info. to gup.json.
 	
-Use the export subcommand if you want to install the same golang
-binaries across multiple systems. By default, this sub-command 
-exports the file to $XDG_CONFIG_HOME/.config/gup/gup.json (e.g. $HOME/.config/gup/gup.json.) 
-After you have placed gup.json in the same path hierarchy on
-another system, you execute import subcommand. gup start the
-installation according to the contents of gup.json.`,
+Use export/import if you want to install the same golang binaries
+across multiple systems. This sub-command writes gup.json
+(default: $XDG_CONFIG_HOME/gup/gup.json), and the target system can
+apply it with 'gup import'.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		Run: func(cmd *cobra.Command, args []string) {

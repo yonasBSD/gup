@@ -789,7 +789,7 @@ func TestExecute_Completion(t *testing.T) {
 	setupXDGBase(t)
 
 	t.Run("generate completion file", func(t *testing.T) {
-		os.Args = []string{"gup", "completion"}
+		os.Args = []string{"gup", "completion", "--install"}
 		if err := Execute(); err != nil {
 			t.Error(err)
 		}

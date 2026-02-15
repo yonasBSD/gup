@@ -211,13 +211,16 @@ Generate /usr/share/man/man1/gup.1.gz
 ```
 
 ### Generate shell completion file (for bash, zsh, fish)
-completion subcommand generates shell completion files for bash, zsh, and fish. If the shell completion file does not exist in the system, the generation process will begin. To activate the completion feature, restart the shell.
+`completion` prints completion scripts to STDOUT when you pass a shell name.
+To install completion files into your user environment, use `--install`.
 
 ```shell
-$ gup completion
-create bash-completion file: /home/nao/.bash_completion
-create fish-completion file: /home/nao/.config/fish/completions/gup.fish
-create zsh-completion file: /home/nao/.zsh/completion/_gup
+$ gup completion bash > gup.bash
+$ gup completion zsh > _gup
+$ gup completion fish > gup.fish
+
+# Install files automatically to default user paths
+$ gup completion --install
 ```
 
 ### Desktop notification

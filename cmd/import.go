@@ -23,13 +23,13 @@ func newImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import",
 		Short: "Install command according to gup.json.",
-		Long: `Install command according to gup.json.
+	Long: `Install command according to gup.json.
 	
-Use the export subcommand if you want to install the same golang
-binaries across multiple systems. After you create gup.json by 
-import subcommand in another environment, you save conf-file in
-$XDG_CONFIG_HOME/.config/gup/gup.json (e.g. $HOME/.config/gup/gup.json.)
-Finally, you execute the export subcommand in this state.`,
+Use export/import if you want to install the same golang binaries
+across multiple systems.
+First, run 'gup export' on the source environment and copy gup.json.
+Then run 'gup import' on the target environment to install the
+versions recorded in that gup.json.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		Run: func(cmd *cobra.Command, args []string) {
