@@ -123,6 +123,44 @@ func TestReadConfFile_OldFormat(t *testing.T) {
 	}
 }
 
+func TestReadConfFile_InvalidFormat(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		content string
+	}{
+		{
+			name:    "extra equals in version",
+			content: "foo = example.com/foo@v1.2.3=dirty\n",
+		},
+		{
+			name:    "extra equals in import path",
+			content: "foo = example.com/fo=o@v1.2.3\n",
+		},
+		{
+			name:    "multiple at signs",
+			content: "foo = example.com/foo@v1.2.3@dirty\n",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			confPath := filepath.Join(t.TempDir(), "gup.conf")
+			if err := os.WriteFile(confPath, []byte(tt.content), 0o600); err != nil {
+				t.Fatalf("failed to write temp conf file: %v", err)
+			}
+
+			if _, err := ReadConfFile(confPath); err == nil {
+				t.Fatal("ReadConfFile() should return error for invalid format")
+			}
+		})
+	}
+}
+
 func TestResolveImportFilePath(t *testing.T) { //nolint:paralleltest // changes working dir
 	cleanup := withTempXDG(t)
 	defer cleanup()

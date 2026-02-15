@@ -90,11 +90,18 @@ func ReadConfFile(path string) ([]goutil.Package, error) {
 		}
 		name = strings.TrimSpace(name)
 		rest = strings.TrimSpace(rest)
+		if strings.Contains(rest, "=") {
+			return nil, errors.New(path + " is not gup.conf file")
+		}
 
-		importPath, version, found := strings.Cut(rest, "@")
-		if !found {
+		atCount := strings.Count(rest, "@")
+		if atCount == 0 {
 			return nil, fmt.Errorf("%s is old gup.conf format. expected '<name> = <import-path>@<version>'", path)
 		}
+		if atCount != 1 {
+			return nil, errors.New(path + " is not gup.conf file")
+		}
+		importPath, version, _ := strings.Cut(rest, "@")
 		importPath = strings.TrimSpace(importPath)
 		version = strings.TrimSpace(version)
 		if name == "" || importPath == "" || version == "" {

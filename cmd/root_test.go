@@ -419,7 +419,7 @@ func TestExecute_Export(t *testing.T) {
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
 			args:  []string{"gup", "export"},
-				want: `gal.exe = github.com/nao1215/gal/cmd/gal@latest
+			want: `gal.exe = github.com/nao1215/gal/cmd/gal@latest
 posixer.exe = github.com/nao1215/posixer@latest
 `,
 		})
@@ -501,12 +501,12 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 		tests = append(tests, test{
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
-				args:  []string{"gup", "export", "--output"},
-				want: []string{
-					"gal.exe = github.com/nao1215/gal/cmd/gal@latest",
-					"posixer.exe = github.com/nao1215/posixer@latest",
-					""},
-			})
+			args:  []string{"gup", "export", "--output"},
+			want: []string{
+				"gal.exe = github.com/nao1215/gal/cmd/gal@latest",
+				"posixer.exe = github.com/nao1215/posixer@latest",
+				""},
+		})
 	} else {
 		tests = append(tests, test{
 			name:  "success",
