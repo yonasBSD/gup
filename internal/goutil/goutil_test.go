@@ -267,6 +267,22 @@ func TestInstallLatest_golden(t *testing.T) {
 	}
 }
 
+func TestInstall_specificVersion_golden(t *testing.T) {
+	// Backup and defer restore
+	oldGoExe := goExe
+	defer func() {
+		goExe = oldGoExe
+	}()
+
+	// Mock the `go` to `echo` command to print instead of executing go.
+	goExe = "echo"
+
+	err := Install("github.com/nao1215/gup", "v1.0.0")
+	if err != nil {
+		t.Fatalf("it should not return error. got: %v", err)
+	}
+}
+
 func TestInstallMaster_golden(t *testing.T) {
 	// Backup and defer restore
 	OldGoExe := goExe

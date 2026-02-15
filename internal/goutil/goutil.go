@@ -254,15 +254,15 @@ func CanUseGoCmd() error {
 
 // InstallLatest execute "$ go install <importPath>@latest"
 func InstallLatest(importPath string) error {
-	return install(importPath, "latest")
+	return Install(importPath, "latest")
 }
 
 // InstallMainOrMaster execute "$ go install <importPath>@main" or "$ go install <importPath>@master"
 func InstallMainOrMaster(importPath string) error {
-	mainErr := install(importPath, "main")
+	mainErr := Install(importPath, "main")
 	if mainErr != nil {
 		// Previous error is "invalid version: unknown revision main". Not return this error.
-		masterErr := install(importPath, "master")
+		masterErr := Install(importPath, "master")
 		if masterErr == nil {
 			return nil
 		}
@@ -277,8 +277,8 @@ func InstallMainOrMaster(importPath string) error {
 	return nil
 }
 
-// install execute "$ go install <importPath>@<version>"
-func install(importPath, version string) error {
+// Install executes "$ go install <importPath>@<version>".
+func Install(importPath, version string) error {
 	if importPath == "command-line-arguments" {
 		return errors.New("is devel-binary copied from local environment")
 	}
