@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
 )
@@ -29,7 +30,7 @@ func Test_runImport_flagErrors(t *testing.T) {
 			cmd: func() *cobra.Command {
 				c := &cobra.Command{}
 				c.Flags().Bool("dry-run", false, "")
-				c.Flags().String("input", "gup.conf", "")
+				c.Flags().String("file", "gup.conf", "")
 				return c
 			}(),
 			want: 1,
@@ -39,7 +40,7 @@ func Test_runImport_flagErrors(t *testing.T) {
 			cmd: func() *cobra.Command {
 				c := &cobra.Command{}
 				c.Flags().Bool("dry-run", false, "")
-				c.Flags().String("input", "gup.conf", "")
+				c.Flags().String("file", "gup.conf", "")
 				c.Flags().Bool("notify", false, "")
 				return c
 			}(),
@@ -73,7 +74,7 @@ func Test_runImport_flagErrors(t *testing.T) {
 
 func Test_runImport_fileNotFound(t *testing.T) {
 	cmd := newImportCmd()
-	if err := cmd.Flags().Set("input", "/no/such/file.conf"); err != nil {
+	if err := cmd.Flags().Set("file", "/no/such/file.conf"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,7 +114,7 @@ func Test_runImport_emptyConf(t *testing.T) {
 	}
 
 	cmd := newImportCmd()
-	if err := cmd.Flags().Set("input", confPath); err != nil {
+	if err := cmd.Flags().Set("file", confPath); err != nil {
 		t.Fatal(err)
 	}
 
@@ -153,7 +154,7 @@ func Test_runImport_jobsClamp(t *testing.T) {
 	}
 
 	cmd := newImportCmd()
-	if err := cmd.Flags().Set("input", confPath); err != nil {
+	if err := cmd.Flags().Set("file", confPath); err != nil {
 		t.Fatal(err)
 	}
 	if err := cmd.Flags().Set("jobs", "0"); err != nil {
@@ -179,5 +180,39 @@ func Test_runImport_jobsClamp(t *testing.T) {
 	// Expect exit code 1 because the conf file has no packages
 	if got != 1 {
 		t.Errorf("runImport() = %v, want 1", got)
+	}
+}
+
+func Test_installFromConfig_UseVersion(t *testing.T) {
+	originalInstaller := installByVersion
+	t.Cleanup(func() {
+		installByVersion = originalInstaller
+	})
+
+	var gotImportPath string
+	var gotVersion string
+	installByVersion = func(importPath, version string) error {
+		gotImportPath = importPath
+		gotVersion = version
+		return nil
+	}
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "gup",
+			ImportPath: "github.com/nao1215/gup",
+			Version:    &goutil.Version{Current: "v1.0.0"},
+		},
+	}
+
+	if got := installFromConfig(pkgs, false, false, 1); got != 0 {
+		t.Fatalf("installFromConfig() = %d, want 0", got)
+	}
+
+	if gotImportPath != "github.com/nao1215/gup" {
+		t.Fatalf("install import path = %s, want %s", gotImportPath, "github.com/nao1215/gup")
+	}
+	if gotVersion != "v1.0.0" {
+		t.Fatalf("install version = %s, want %s", gotVersion, "v1.0.0")
 	}
 }

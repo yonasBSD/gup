@@ -8,11 +8,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/adrg/xdg"
 	"github.com/nao1215/gup/internal/cmdinfo"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/shogo82148/pointer"
 )
@@ -25,10 +25,40 @@ func FilePath() string {
 	return filepath.Join(DirPath(), ConfigFileName)
 }
 
+// LocalFilePath returns the path to gup.conf in the current directory.
+func LocalFilePath() string {
+	return filepath.Join(".", ConfigFileName)
+}
+
 // DirPath return directory path that store configuration-file.
 // Default path is $HOME/.config/gup.
 func DirPath() string {
 	return filepath.Join(xdg.ConfigHome, cmdinfo.Name)
+}
+
+// ResolveImportFilePath resolves config file path for import.
+// Priority: explicit path > ./gup.conf (if exists) > default config path.
+func ResolveImportFilePath(explicitPath string) string {
+	explicitPath = strings.TrimSpace(explicitPath)
+	if explicitPath != "" {
+		return explicitPath
+	}
+
+	local := LocalFilePath()
+	if fileutil.IsFile(local) {
+		return local
+	}
+	return FilePath()
+}
+
+// ResolveExportFilePath resolves config file path for export.
+// Priority: explicit path > default config path.
+func ResolveExportFilePath(explicitPath string) string {
+	explicitPath = strings.TrimSpace(explicitPath)
+	if explicitPath != "" {
+		return explicitPath
+	}
+	return FilePath()
 }
 
 // ReadConfFile return contents of configuration-file (package information)
@@ -38,12 +68,10 @@ func ReadConfFile(path string) ([]goutil.Package, error) {
 		return nil, fmt.Errorf("can't read %s: %w", path, err)
 	}
 
-	const expectedPair = 2
-
 	pkgs := []goutil.Package{}
 	for _, v := range contents {
 		pkg := goutil.Package{}
-		binVer := goutil.Version{Current: "<from gup.conf>", Latest: ""}
+		binVer := goutil.Version{Current: "", Latest: ""}
 		goVer := goutil.Version{Current: "<from gup.conf>", Latest: ""}
 
 		v = deleteComment(v)
@@ -51,14 +79,26 @@ func ReadConfFile(path string) ([]goutil.Package, error) {
 			continue
 		}
 
-		// Check if the package name and package path are included
-		if len(strings.Split(v, "=")) != expectedPair {
+		name, rest, found := strings.Cut(v, "=")
+		if !found {
+			return nil, errors.New(path + " is not gup.conf file")
+		}
+		name = strings.TrimSpace(name)
+		rest = strings.TrimSpace(rest)
+
+		importPath, version, found := strings.Cut(rest, "@")
+		if !found {
+			return nil, fmt.Errorf("%s is old gup.conf format. expected '<name> = <import-path>@<version>'", path)
+		}
+		importPath = strings.TrimSpace(importPath)
+		version = strings.TrimSpace(version)
+		if name == "" || importPath == "" || version == "" {
 			return nil, errors.New(path + " is not gup.conf file")
 		}
 
-		equalIdx := strings.Index(v, "=")
-		pkg.Name = strings.TrimSpace(v[:equalIdx])
-		pkg.ImportPath = strings.TrimSpace(v[equalIdx+1:])
+		pkg.Name = name
+		pkg.ImportPath = importPath
+		binVer.Current = version
 		pkg.Version = pointer.Ptr(binVer)
 		pkg.GoVersion = pointer.Ptr(goVer)
 		pkgs = append(pkgs, pkg)
@@ -71,13 +111,16 @@ func ReadConfFile(path string) ([]goutil.Package, error) {
 func WriteConfFile(file io.Writer, pkgs []goutil.Package) error {
 	var builder strings.Builder
 	for _, v := range pkgs {
-		// lost version information
-		builder.WriteString(fmt.Sprintf("%s = %s\n", v.Name, v.ImportPath))
+		version := "latest"
+		if v.Version != nil && strings.TrimSpace(v.Version.Current) != "" {
+			version = strings.TrimSpace(v.Version.Current)
+		}
+		builder.WriteString(fmt.Sprintf("%s = %s@%s\n", v.Name, v.ImportPath, version))
 	}
 
 	_, err := file.Write([]byte(builder.String()))
 	if err != nil {
-		return fmt.Errorf("%s %s: %w", "can't update", FilePath(), err)
+		return fmt.Errorf("can't write gup.conf: %w", err)
 	}
 	return nil
 }
@@ -89,35 +132,30 @@ func isBlank(line string) bool {
 }
 
 func deleteComment(line string) string {
-	r := regexp.MustCompile(`#.*`)
-	return r.ReplaceAllString(line, "")
+	line, _, _ = strings.Cut(line, "#")
+	return line
 }
 
 // readFileToList convert file content to string list.
-func readFileToList(path string) ([]string, error) {
+func readFileToList(path string) (_ []string, err error) {
 	var strList []string
 	f, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
-		if closeErr := f.Close(); closeErr != nil {
-			// TODO: If use go 1.20, rewrite like this.
-			// err = errors.Join(err, closeErr)
-			err = closeErr // overwrite error
+		if closeErr := f.Close(); closeErr != nil && err == nil {
+			err = closeErr
 		}
 	}()
 
-	r := bufio.NewReader(f)
-	for {
-		line, err := r.ReadString('\n')
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-		if err == io.EOF && len(line) == 0 {
-			break
-		}
-		strList = append(strList, line)
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		strList = append(strList, scanner.Text())
 	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
 	return strList, nil
 }

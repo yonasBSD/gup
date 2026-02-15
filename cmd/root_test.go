@@ -86,6 +86,18 @@ func helper_stubUpdateOps(t *testing.T) {
 	})
 }
 
+func helper_stubImportInstaller(t *testing.T) {
+	t.Helper()
+
+	orgInstallByVersion := installByVersion
+	installByVersion = func(_, _ string) error {
+		return nil
+	}
+	t.Cleanup(func() {
+		installByVersion = orgInstallByVersion
+	})
+}
+
 // Runs a gup command, and return its output split by \n
 func helper_runGup(t *testing.T, args []string) ([]string, error) {
 	t.Helper()
@@ -407,8 +419,8 @@ func TestExecute_Export(t *testing.T) {
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
 			args:  []string{"gup", "export"},
-			want: `gal.exe = github.com/nao1215/gal/cmd/gal
-posixer.exe = github.com/nao1215/posixer
+			want: `gal.exe = github.com/nao1215/gal/cmd/gal@(devel)
+posixer.exe = github.com/nao1215/posixer@(devel)
 `,
 		})
 	} else {
@@ -421,9 +433,9 @@ posixer.exe = github.com/nao1215/posixer
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success"),
 			args:  []string{"gup", "export"},
-			want: `gal = github.com/nao1215/gal/cmd/gal
-posixer = github.com/nao1215/posixer
-subaru = github.com/nao1215/subaru
+			want: `gal = github.com/nao1215/gal/cmd/gal@v1.1.1
+posixer = github.com/nao1215/posixer@v0.1.0
+subaru = github.com/nao1215/subaru@v1.0.0
 `,
 		})
 	}
@@ -491,8 +503,8 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
 			args:  []string{"gup", "export", "--output"},
 			want: []string{
-				"gal.exe = github.com/nao1215/gal/cmd/gal",
-				"posixer.exe = github.com/nao1215/posixer",
+				"gal.exe = github.com/nao1215/gal/cmd/gal@(devel)",
+				"posixer.exe = github.com/nao1215/posixer@(devel)",
 				""},
 		})
 	} else {
@@ -501,9 +513,9 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			gobin: filepath.Join("testdata", "check_success"),
 			args:  []string{"gup", "export", "--output"},
 			want: []string{
-				"gal = github.com/nao1215/gal/cmd/gal",
-				"posixer = github.com/nao1215/posixer",
-				"subaru = github.com/nao1215/subaru",
+				"gal = github.com/nao1215/gal/cmd/gal@v1.1.1",
+				"posixer = github.com/nao1215/posixer@v0.1.0",
+				"subaru = github.com/nao1215/subaru@v1.0.0",
 				""},
 		})
 	}
@@ -524,7 +536,7 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 
 func TestExecute_Import_WithInputOption(t *testing.T) {
 	setupXDGBase(t)
-	helper_stubUpdateOps(t)
+	helper_stubImportInstaller(t)
 
 	gobinDir := filepath.Join(t.TempDir(), "gobin")
 	t.Setenv("GOBIN", gobinDir)
@@ -542,7 +554,7 @@ func TestExecute_Import_WithInputOption(t *testing.T) {
 		confFile = "testdata/gup_config/windows.conf"
 	}
 
-	got, err := helper_runGup(t, []string{"gup", "import", "-i", confFile})
+	got, err := helper_runGup(t, []string{"gup", "import", "-f", confFile})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -591,7 +603,7 @@ func TestExecute_Import_WithBadInputFile(t *testing.T) {
 				OsExit = os.Exit
 			}()
 
-			got, err := helper_runGup(t, []string{"gup", "import", "-i", tt.inputFile})
+			got, err := helper_runGup(t, []string{"gup", "import", "-f", tt.inputFile})
 			if err != nil {
 				t.Fatal(err)
 			}

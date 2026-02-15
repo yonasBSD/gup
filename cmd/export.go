@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/fileutil"
@@ -30,6 +31,10 @@ installation according to the contents of gup.conf.`,
 		},
 	}
 	cmd.Flags().BoolP("output", "o", false, "print command path information at STDOUT")
+	cmd.Flags().StringP("file", "f", "", "specify gup.conf file path to export")
+	if err := cmd.MarkFlagFilename("file", "conf"); err != nil {
+		panic(err)
+	}
 
 	return cmd
 }
@@ -41,6 +46,11 @@ func export(cmd *cobra.Command, _ []string) int {
 	}
 
 	output, err := getFlagBool(cmd, "output")
+	if err != nil {
+		print.Err(err)
+		return 1
+	}
+	configPath, err := getFlagString(cmd, "file")
 	if err != nil {
 		print.Err(err)
 		return 1
@@ -61,7 +71,7 @@ func export(cmd *cobra.Command, _ []string) int {
 	if output {
 		err = outputConfig(pkgs)
 	} else {
-		err = writeConfigFile(pkgs)
+		err = writeConfigFile(config.ResolveExportFilePath(configPath), pkgs)
 	}
 	if err != nil {
 		print.Err(err)
@@ -70,27 +80,26 @@ func export(cmd *cobra.Command, _ []string) int {
 	return 0
 }
 
-func writeConfigFile(pkgs []goutil.Package) error {
-	if err := os.MkdirAll(config.DirPath(), fileutil.FileModeCreatingDir); err != nil {
+func writeConfigFile(path string, pkgs []goutil.Package) (err error) {
+	path = filepath.Clean(path)
+	if err := os.MkdirAll(filepath.Dir(path), fileutil.FileModeCreatingDir); err != nil {
 		return fmt.Errorf("%s: %w", "can not make config directory", err)
 	}
 
-	file, err := os.Create(config.FilePath())
+	file, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("%s %s: %w", "can't update", config.FilePath(), err)
+		return fmt.Errorf("%s %s: %w", "can't update", path, err)
 	}
 	defer func() {
-		if closeErr := file.Close(); closeErr != nil {
-			// TODO: If use go 1.20, rewrite like this.
-			// err = errors.Join(err, closeErr)
-			err = closeErr // overwrite error
+		if closeErr := file.Close(); closeErr != nil && err == nil {
+			err = closeErr
 		}
 	}()
 
-	if err := config.WriteConfFile(file, pkgs); err != nil {
+	if err = config.WriteConfFile(file, pkgs); err != nil {
 		return err
 	}
-	print.Info("Export " + config.FilePath())
+	print.Info("Export " + path)
 	return nil
 }
 
