@@ -165,7 +165,7 @@ func gup(cmd *cobra.Command, args []string) int {
 
 	result, succeededPkgs, renamedPkgs := updateWithChannels(pkgs, dryRun, notify, cpus, ignoreGoUpdate, channelMap)
 
-	if !dryRun && shouldPersistChannels(mainPkgNames, masterPkgNames, latestPkgNames) {
+	if !dryRun && (shouldPersistChannels(mainPkgNames, masterPkgNames, latestPkgNames) || len(renamedPkgs) > 0) {
 		merged := mergeConfigPackages(confPkgs, succeededPkgs, channelMap, renamedPkgs)
 		if err := writeConfigFile(confWritePath, merged); err != nil {
 			print.Warn("failed to write " + confWritePath + ": " + err.Error())

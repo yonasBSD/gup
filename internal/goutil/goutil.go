@@ -342,9 +342,12 @@ func Install(importPath, version string) error {
 
 // GetLatestVer execute "$ go list -m -f {{.Version}} <importPath>@latest"
 func GetLatestVer(modulePath string) (string, error) {
-	out, err := exec.CommandContext(context.Background(), goExe, "list", "-m", "-f", "{{.Version}}", modulePath+"@latest").Output() //#nosec
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(context.Background(), goExe, "list", "-m", "-f", "{{.Version}}", modulePath+"@latest") //#nosec
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("can't check %s:\n%w", modulePath, err)
+		return "", fmt.Errorf("can't check %s:\n%s", modulePath, stderr.String())
 	}
 	return strings.TrimRight(string(out), "\n"), nil
 }
