@@ -140,6 +140,12 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 			}
 		}
 
+		// Store resolved version for display in the result loop
+		if p.Version == nil {
+			p.Version = &goutil.Version{}
+		}
+		p.Version.Current = ver
+
 		if err := installByVersion(p.ImportPath, ver); err != nil {
 			return updateResult{
 				updated: false,
@@ -159,13 +165,8 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 
 	count := 0
 	for v := range ch {
-		version, err := versionFromConfig(v.pkg)
-		if err != nil {
-			version = "unknown"
-		}
-
 		if v.err == nil {
-			print.Info(fmt.Sprintf(countFmt+" %s@%s", count+1, len(pkgs), v.pkg.ImportPath, version))
+			print.Info(fmt.Sprintf(countFmt+" %s@%s", count+1, len(pkgs), v.pkg.ImportPath, v.pkg.Version.Current))
 		} else {
 			result = 1
 			print.Err(fmt.Errorf(countFmt+" %s", count+1, len(pkgs), v.err.Error()))
