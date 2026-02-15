@@ -167,7 +167,7 @@ func gup(cmd *cobra.Command, args []string) int {
 
 	if !dryRun && shouldPersistChannels(confPkgs, mainPkgNames, masterPkgNames, latestPkgNames) {
 		merged := mergeConfigPackages(confPkgs, succeededPkgs, channelMap)
-		if err := writeConfFilePath(confWritePath, merged); err != nil {
+		if err := writeConfigFile(confWritePath, merged); err != nil {
 			print.Warn("failed to write " + confWritePath + ": " + err.Error())
 		}
 	}
@@ -594,28 +594,6 @@ func persistedVersion(p goutil.Package) string {
 		return current
 	}
 	return latestKeyword
-}
-
-func writeConfFilePath(path string, pkgs []goutil.Package) (err error) {
-	path = filepath.Clean(path)
-	if err := os.MkdirAll(filepath.Dir(path), fileutil.FileModeCreatingDir); err != nil {
-		return fmt.Errorf("%s: %w", "can not make config directory", err)
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return fmt.Errorf("%s %s: %w", "can't update", path, err)
-	}
-	defer func() {
-		if closeErr := file.Close(); closeErr != nil && err == nil {
-			err = closeErr
-		}
-	}()
-
-	if err = config.WriteConfFile(file, pkgs); err != nil {
-		return err
-	}
-	return nil
 }
 
 func pkgDigit(pkgs []goutil.Package) string {
