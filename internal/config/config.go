@@ -37,18 +37,23 @@ func DirPath() string {
 }
 
 // ResolveImportFilePath resolves config file path for import.
-// Priority: explicit path > ./gup.conf (if exists) > default config path.
+// Priority: explicit path > default config path (if exists) > ./gup.conf (if exists) > default config path.
 func ResolveImportFilePath(explicitPath string) string {
 	explicitPath = strings.TrimSpace(explicitPath)
 	if explicitPath != "" {
 		return explicitPath
 	}
 
+	defaultPath := FilePath()
+	if fileutil.IsFile(defaultPath) {
+		return defaultPath
+	}
+
 	local := LocalFilePath()
 	if fileutil.IsFile(local) {
 		return local
 	}
-	return FilePath()
+	return defaultPath
 }
 
 // ResolveExportFilePath resolves config file path for export.

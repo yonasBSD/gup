@@ -8,7 +8,7 @@
 
 ### Features
 
-* Add config path resolution for import (`./gup.conf` first, then `$XDG_CONFIG_HOME/gup/gup.conf`)
+* Add config path resolution for import (`$XDG_CONFIG_HOME/gup/gup.conf` first, then `./gup.conf`)
 * Add `--file` option to export
 
 ### Fixes

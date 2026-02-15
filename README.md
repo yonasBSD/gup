@@ -144,8 +144,8 @@ posixer = github.com/nao1215/posixer@v0.1.0
 By default:
 - `gup export` writes to `$XDG_CONFIG_HOME/gup/gup.conf`
 - `gup import` auto-detects config path in this order:
-  1) `./gup.conf` (if exists)
-  2) `$XDG_CONFIG_HOME/gup/gup.conf`
+  1) `$XDG_CONFIG_HOME/gup/gup.conf` (if exists)
+  2) `./gup.conf` (if exists)
 
 You can always override the path with `--file`.
 

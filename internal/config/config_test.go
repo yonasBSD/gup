@@ -151,6 +151,17 @@ func TestResolveImportFilePath(t *testing.T) { //nolint:paralleltest // changes 
 	if got := ResolveImportFilePath(""); got != LocalFilePath() {
 		t.Fatalf("ResolveImportFilePath(local) = %s, want %s", got, LocalFilePath())
 	}
+
+	xdgFile := FilePath()
+	if err := os.MkdirAll(filepath.Dir(xdgFile), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(xdgFile, []byte(""), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := ResolveImportFilePath(""); got != FilePath() {
+		t.Fatalf("ResolveImportFilePath(xdg-priority) = %s, want %s", got, FilePath())
+	}
 }
 
 func TestResolveExportFilePath(t *testing.T) {
