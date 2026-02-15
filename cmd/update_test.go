@@ -185,6 +185,25 @@ func Test_extractUserSpecifyPkg(t *testing.T) {
 	}
 }
 
+func Test_completePathBinaries_prefix(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Setenv("GOBIN", filepath.Join("testdata", "check_success_for_windows"))
+	} else {
+		t.Setenv("GOBIN", filepath.Join("testdata", "check_success"))
+	}
+
+	got, _ := completePathBinaries(nil, nil, "ga")
+	if len(got) == 0 {
+		t.Fatalf("completion should return at least one candidate")
+	}
+
+	for _, name := range got {
+		if !strings.HasPrefix(strings.ToLower(name), "ga") {
+			t.Fatalf("unexpected completion candidate for prefix ga: %s", name)
+		}
+	}
+}
+
 func Test_catchSignal(t *testing.T) {
 	signals := make(chan os.Signal, 1)
 	done := make(chan struct{})

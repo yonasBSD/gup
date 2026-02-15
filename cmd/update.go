@@ -662,10 +662,23 @@ func extractUserSpecifyPkg(pkgs []goutil.Package, targets []string) []goutil.Pac
 	return result
 }
 
-func completePathBinaries(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+func completePathBinaries(_ *cobra.Command, _ []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 	binList, _ := getBinaryPathList()
+	prefix := toComplete
+	if runtime.GOOS == goosWindows {
+		prefix = strings.ToLower(prefix)
+	}
+	filtered := make([]string, 0, len(binList))
 	for i, b := range binList {
 		binList[i] = filepath.Base(b)
+		candidate := binList[i]
+		if runtime.GOOS == goosWindows {
+			candidate = strings.ToLower(candidate)
+		}
+		if prefix != "" && !strings.HasPrefix(candidate, prefix) {
+			continue
+		}
+		filtered = append(filtered, binList[i])
 	}
-	return binList, cobra.ShellCompDirectiveNoFileComp
+	return filtered, cobra.ShellCompDirectiveNoFileComp
 }
