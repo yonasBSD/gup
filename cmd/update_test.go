@@ -742,7 +742,7 @@ func Test_update_modulePathChangedOnGetLatest(t *testing.T) {
 	}
 
 	channelMap := map[string]goutil.UpdateChannel{"air": goutil.UpdateChannelLatest}
-	if got, _ := updateWithChannels(pkgs, false, false, 1, true, channelMap); got != 0 {
+	if got, _, _ := updateWithChannels(pkgs, false, false, 1, true, channelMap); got != 0 {
 		t.Fatalf("updateWithChannels() = %d, want 0", got)
 	}
 	if diff := cmp.Diff([]string{oldModule, newModule}, latestCalls); diff != "" {
@@ -811,7 +811,7 @@ func Test_update_modulePathChangedOnInstall(t *testing.T) {
 	}
 
 	channelMap := map[string]goutil.UpdateChannel{"air": goutil.UpdateChannelLatest}
-	if got, _ := updateWithChannels(pkgs, false, false, 1, true, channelMap); got != 0 {
+	if got, _, _ := updateWithChannels(pkgs, false, false, 1, true, channelMap); got != 0 {
 		t.Fatalf("updateWithChannels() = %d, want 0", got)
 	}
 	if diff := cmp.Diff([]string{oldImport, newImport}, installCalls); diff != "" {

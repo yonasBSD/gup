@@ -163,10 +163,10 @@ func gup(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 
-	result, succeededPkgs := updateWithChannels(pkgs, dryRun, notify, cpus, ignoreGoUpdate, channelMap)
+	result, succeededPkgs, renamedPkgs := updateWithChannels(pkgs, dryRun, notify, cpus, ignoreGoUpdate, channelMap)
 
 	if !dryRun && shouldPersistChannels(mainPkgNames, masterPkgNames, latestPkgNames) {
-		merged := mergeConfigPackages(confPkgs, succeededPkgs, channelMap)
+		merged := mergeConfigPackages(confPkgs, succeededPkgs, channelMap, renamedPkgs)
 		if err := writeConfigFile(confWritePath, merged); err != nil {
 			print.Warn("failed to write " + confWritePath + ": " + err.Error())
 		}
@@ -209,16 +209,18 @@ func normalizeBinaryNameForMatch(name string) string {
 }
 
 type updateResult struct {
-	updated bool
-	pkg     goutil.Package
-	err     error
+	updated     bool
+	pkg         goutil.Package
+	err         error
+	renamedFrom string // original binary name if renamed during update
 }
 
-func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGoUpdate bool, channelMap map[string]goutil.UpdateChannel) (int, []goutil.Package) {
+func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGoUpdate bool, channelMap map[string]goutil.UpdateChannel) (int, []goutil.Package, map[string]string) {
 	result := 0
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
 	dryRunManager := goutil.NewGoPaths()
 	succeededPkgs := make([]goutil.Package, 0, len(pkgs))
+	renamedPkgs := map[string]string{} // oldName -> newName
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -228,7 +230,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 		if err := dryRunManager.StartDryRunMode(); err != nil {
 			print.Err(fmt.Errorf("can not change to dry run mode: %w", err))
 			notify.Warn("gup", "Can not change to dry run mode")
-			return 1, nil
+			return 1, nil, nil
 		}
 		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP,
 			syscall.SIGQUIT, syscall.SIGABRT)
@@ -236,6 +238,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 	}
 
 	updater := func(_ context.Context, p goutil.Package) updateResult {
+		originalName := p.Name
 		// Collect online latest version if possible; else always update
 		shouldUpdate := true
 		modulePathChanged := false
@@ -281,7 +284,6 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 		if p.ImportPath == "" {
 			updateErr = fmt.Errorf("%s is not installed by 'go install' (or permission incorrect)", p.Name)
 		} else {
-			originalName := p.Name
 			channel := packageUpdateChannel(p.Name, p.UpdateChannel, channelMap)
 			p.UpdateChannel = channel
 
@@ -308,10 +310,15 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 		if updateErr == nil {
 			p.SetLatestVer()
 		}
+		var renamed string
+		if updateErr == nil && p.Name != originalName {
+			renamed = originalName
+		}
 		return updateResult{
-			updated: updateErr == nil,
-			pkg:     p,
-			err:     updateErr,
+			updated:     updateErr == nil,
+			pkg:         p,
+			err:         updateErr,
+			renamedFrom: renamed,
 		}
 	}
 
@@ -325,6 +332,9 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 			print.Info(fmt.Sprintf(countFmt+" %s (%s)",
 				count+1, len(pkgs), v.pkg.ImportPath, v.pkg.CurrentToLatestStr()))
 			succeededPkgs = append(succeededPkgs, v.pkg)
+			if v.renamedFrom != "" {
+				renamedPkgs[v.renamedFrom] = v.pkg.Name
+			}
 		} else {
 			result = 1
 			print.Err(fmt.Errorf(countFmt+" %s", count+1, len(pkgs), v.err.Error()))
@@ -338,7 +348,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 	if dryRun {
 		if err := dryRunManager.EndDryRunMode(); err != nil {
 			print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
-			return 1, nil
+			return 1, nil, nil
 		}
 		signal.Stop(signals) // stop signal delivery before closing the channel
 		close(signals)       // unblock catchSignal goroutine
@@ -346,7 +356,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 
 	desktopNotifyIfNeeded(result, notification)
 
-	return result, succeededPkgs
+	return result, succeededPkgs, renamedPkgs
 }
 
 func desktopNotifyIfNeeded(result int, enable bool) {
@@ -511,7 +521,7 @@ func resolveUpdateChannels(
 	return channelMap, nil
 }
 
-func mergeConfigPackages(confPkgs []goutil.Package, succeededPkgs []goutil.Package, channelMap map[string]goutil.UpdateChannel) []goutil.Package {
+func mergeConfigPackages(confPkgs []goutil.Package, succeededPkgs []goutil.Package, channelMap map[string]goutil.UpdateChannel, renamedPkgs map[string]string) []goutil.Package {
 	pkgByName := map[string]goutil.Package{}
 	for _, p := range confPkgs {
 		pkgByName[p.Name] = sanitizeConfigPackage(p)
@@ -527,6 +537,10 @@ func mergeConfigPackages(confPkgs []goutil.Package, succeededPkgs []goutil.Packa
 			Version:       &goutil.Version{Current: persistedVersion(p)},
 			UpdateChannel: channel,
 		}
+	}
+	// Remove stale entries when a binary was renamed during update
+	for oldName := range renamedPkgs {
+		delete(pkgByName, oldName)
 	}
 	for name, channel := range channelMap {
 		p, ok := pkgByName[name]
