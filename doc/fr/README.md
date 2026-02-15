@@ -147,13 +147,13 @@ $ ls /home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-Alternativement, la sous-commande export affiche les informations de package (c'est la même chose que gup.conf) que vous voulez exporter sur STDOUT si vous utilisez l'option --output. La sous-commande import peut aussi spécifier le chemin du fichier gup.conf si vous utilisez l'option --input.
+Alternativement, la sous-commande export affiche les informations de package (c'est la même chose que gup.conf) que vous voulez exporter sur STDOUT si vous utilisez l'option --output. La sous-commande import peut aussi spécifier le chemin du fichier gup.conf si vous utilisez l'option --file.
 ```shell
 ※ Environnement A (par exemple ubuntu)
 $ gup export --output > gup.conf
 
 ※ Environnement B (par exemple debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.conf
 ```
 
 ### Générer les pages de manuel (pour linux, mac)

@@ -146,13 +146,13 @@ $ ls /home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-또는 export 하위 명령어는 --output 옵션을 사용하면 내보내려는 패키지 정보(gup.conf와 동일)를 STDOUT에 출력합니다. import 하위 명령어도 --input 옵션을 사용하면 gup.conf 파일 경로를 지정할 수 있습니다.
+또는 export 하위 명령어는 --output 옵션을 사용하면 내보내려는 패키지 정보(gup.conf와 동일)를 STDOUT에 출력합니다. import 하위 명령어도 --file 옵션을 사용하면 gup.conf 파일 경로를 지정할 수 있습니다.
 ```shell
 ※ 환경 A (예: ubuntu)
 $ gup export --output > gup.conf
 
 ※ 환경 B (예: debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.conf
 ```
 
 ### man 페이지 생성 (linux, mac용)

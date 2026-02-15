@@ -146,13 +146,13 @@ $ ls /home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-或者，如果您使用 --output 选项，export 子命令会在 STDOUT 打印您想要导出的包信息（与 gup.conf 相同）。如果您使用 --input 选项，import 子命令也可以指定 gup.conf 文件路径。
+或者，如果您使用 --output 选项，export 子命令会在 STDOUT 打印您想要导出的包信息（与 gup.conf 相同）。如果您使用 --file 选项，import 子命令也可以指定 gup.conf 文件路径。
 ```shell
 ※ 环境 A（例如 ubuntu）
 $ gup export --output > gup.conf
 
 ※ 环境 B（例如 debian）
-$ gup import --input=gup.conf
+$ gup import --file=gup.conf
 ```
 
 ### 生成手册页（适用于 linux、mac）
