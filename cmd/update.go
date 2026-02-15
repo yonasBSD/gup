@@ -13,13 +13,14 @@ import (
 	"strings"
 	"syscall"
 
+	"slices"
+
 	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/notify"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
-	"golang.org/x/exp/slices"
 )
 
 var (

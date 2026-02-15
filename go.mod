@@ -12,7 +12,6 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/shogo82148/pointer v1.4.0
 	github.com/spf13/cobra v1.10.2
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 )
 
 require (
