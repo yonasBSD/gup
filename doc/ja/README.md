@@ -144,8 +144,8 @@ posixer = github.com/nao1215/posixer@v0.1.0
 デフォルトでは次の挙動です。
 - `gup export` は `$XDG_CONFIG_HOME/gup/gup.conf` に書き出します。
 - `gup import` は設定ファイルを次の順で自動検出します。
-  1) `./gup.conf`（存在する場合）
-  2) `$XDG_CONFIG_HOME/gup/gup.conf`
+  1) `$XDG_CONFIG_HOME/gup/gup.conf`（存在する場合）
+  2) `./gup.conf`（存在する場合）
 
 `--file` を使えば、読み書きする設定ファイルパスを明示指定できます。
 
