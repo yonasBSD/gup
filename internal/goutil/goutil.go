@@ -388,11 +388,11 @@ func GetPackageInformation(binList []string) []Package {
 func GetPackageVersion(cmdName string) string {
 	goBin, err := GoBin()
 	if err != nil {
-		return "unknown"
+		return unknown
 	}
 	info, err := buildinfo.ReadFile(filepath.Join(goBin, cmdName))
 	if err != nil {
-		return "unknown"
+		return unknown
 	}
 	return info.Main.Version
 }
