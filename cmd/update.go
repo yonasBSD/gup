@@ -398,7 +398,7 @@ func replaceImportPathPrefix(importPath, oldModulePath, newModulePath string) st
 	case strings.HasPrefix(importPath, oldModulePath+"/"):
 		return newModulePath + strings.TrimPrefix(importPath, oldModulePath)
 	default:
-		return newModulePath
+		return importPath
 	}
 }
 

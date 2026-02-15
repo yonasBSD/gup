@@ -635,11 +635,11 @@ func Test_replaceImportPathPrefix(t *testing.T) {
 			wantImport: "github.com/air-verse/air",
 		},
 		{
-			name:       "no prefix match falls back to new module",
+			name:       "no prefix match keeps original import path",
 			importPath: "github.com/example/tool",
 			oldModule:  "github.com/cosmtrek/air",
 			newModule:  "github.com/air-verse/air",
-			wantImport: "github.com/air-verse/air",
+			wantImport: "github.com/example/tool",
 		},
 	}
 
