@@ -62,6 +62,30 @@ func helper_setupFakeGoBin(t *testing.T) {
 	}
 }
 
+func helper_stubUpdateOps(t *testing.T) {
+	t.Helper()
+
+	orgGetLatestVer := getLatestVer
+	orgInstallLatest := installLatest
+	orgInstallMainOrMaster := installMainOrMaster
+
+	getLatestVer = func(string) (string, error) {
+		return "v9.9.9", nil
+	}
+	installLatest = func(string) error {
+		return nil
+	}
+	installMainOrMaster = func(string) error {
+		return nil
+	}
+
+	t.Cleanup(func() {
+		getLatestVer = orgGetLatestVer
+		installLatest = orgInstallLatest
+		installMainOrMaster = orgInstallMainOrMaster
+	})
+}
+
 // Runs a gup command, and return its output split by \n
 func helper_runGup(t *testing.T, args []string) ([]string, error) {
 	t.Helper()
@@ -499,11 +523,8 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 }
 
 func TestExecute_Import_WithInputOption(t *testing.T) {
-	if os.Getenv("GUP_RUN_UPDATE_TESTS") != "1" {
-		t.Skip("skip import/install test without explicit opt-in")
-	}
-
 	setupXDGBase(t)
+	helper_stubUpdateOps(t)
 
 	gobinDir := filepath.Join(t.TempDir(), "gobin")
 	t.Setenv("GOBIN", gobinDir)
@@ -583,11 +604,8 @@ func TestExecute_Import_WithBadInputFile(t *testing.T) {
 }
 
 func TestExecute_Update(t *testing.T) {
-	if os.Getenv("GUP_RUN_UPDATE_TESTS") != "1" {
-		t.Skip("skip update test without explicit opt-in")
-	}
-
 	setupXDGBase(t)
+	helper_stubUpdateOps(t)
 	helper_setupFakeGoBin(t)
 	OsExit = func(code int) {}
 	defer func() {
@@ -640,11 +658,8 @@ func TestExecute_Update(t *testing.T) {
 }
 
 func TestExecute_Update_DryRunAndNotify(t *testing.T) {
-	if os.Getenv("GUP_RUN_UPDATE_TESTS") != "1" {
-		t.Skip("skip update test without explicit opt-in")
-	}
-
 	setupXDGBase(t)
+	helper_stubUpdateOps(t)
 	helper_setupFakeGoBin(t)
 	OsExit = func(code int) {}
 	defer func() {
