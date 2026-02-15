@@ -9,7 +9,7 @@ import (
 )
 
 func newCompletionCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "completion",
 		Short: "Generate shell completions (bash, fish, zsh) for gup",
 		Long: `Generate shell completions (bash, fish, zsh) for the gup command.
@@ -19,9 +19,19 @@ with shell name as argument, output completion for the shell to standard output.
 		ValidArgs: []string{"bash", "fish", "zsh"},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rootCmd := newRootCmd()
-			if len(args) == 0 {
+			install, err := getFlagBool(cmd, "install")
+			if err != nil {
+				return err
+			}
+			if install {
+				if len(args) != 0 {
+					return fmt.Errorf("--install cannot be used with shell argument")
+				}
 				completion.DeployShellCompletionFileIfNeeded(rootCmd)
 				return nil
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("specify shell (bash|fish|zsh) or use --install to write completion files")
 			}
 			switch args[0] {
 			case "bash":
@@ -35,4 +45,6 @@ with shell name as argument, output completion for the shell to standard output.
 			}
 		},
 	}
+	cmd.Flags().Bool("install", false, "install completion files to the user shell config paths")
+	return cmd
 }
