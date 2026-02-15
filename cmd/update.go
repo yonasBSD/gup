@@ -416,6 +416,9 @@ func removeOldBinaryIfRenamed(oldName, newName string) error {
 	if oldName == "" || newName == "" || oldName == newName {
 		return nil
 	}
+	if !isSafeBinaryName(oldName) || !isSafeBinaryName(newName) {
+		return fmt.Errorf("refusing to remove binary with unsafe name: old=%q new=%q", oldName, newName)
+	}
 
 	goBin, err := goutil.GoBin()
 	if err != nil {
