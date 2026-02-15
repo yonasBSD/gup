@@ -80,10 +80,15 @@ Also works in combination with --dry-run
 $ gup update --exclude=gopls,golangci-lint    //--exclude or -e, this example will exclude 'gopls' and 'golangci-lint'
 ```
 
-### Update binaries with @main or @master
-If you want to update binaries with @master or @main, you can specify the -m or --master option.
+### Update binaries with @main, @master, or @latest
+If you want to control update source per binary, use the following options:
+- `--main` (`-m`): update by `@main` (fallback to `@master`)
+- `--master`: update by `@master`
+- `--latest`: update by `@latest`
+
+The selected channel is saved to `gup.json` and reused by future `gup update` runs.
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### List up command name with package path and version under $GOPATH/bin
@@ -134,25 +139,41 @@ If you want to update binaries, the following command.
 ```
 ### Export／Import subcommand
 Use export/import when you want to install the same Go binaries across multiple systems.
-`gup.conf` now stores both import path and binary version, and `import` installs that exact version.
+`gup.json` stores import path, binary version, and update channel (`latest` / `main` / `master`).
+`import` installs the exact version written in the file.
 
-```text
-gal = github.com/nao1215/gal/cmd/gal@v1.1.1
-posixer = github.com/nao1215/posixer@v0.1.0
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
 ```
 
 By default:
-- `gup export` writes to `$XDG_CONFIG_HOME/gup/gup.conf`
+- `gup export` writes to `$XDG_CONFIG_HOME/gup/gup.json`
 - `gup import` auto-detects config path in this order:
-  1) `$XDG_CONFIG_HOME/gup/gup.conf` (if exists)
-  2) `./gup.conf` (if exists)
+  1) `$XDG_CONFIG_HOME/gup/gup.json` (if exists)
+  2) `./gup.json` (if exists)
 
 You can always override the path with `--file`.
 
 ```shell
 ※ Environments A (e.g. ubuntu)
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ Environments B (e.g. debian)
 $ gup import
@@ -161,10 +182,10 @@ $ gup import
 `export` can print config content to STDOUT by `--output`. `import` can read a specific file by `--file`.
 ```shell
 ※ Environments A (e.g. ubuntu)
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ Environments B (e.g. debian)
-$ gup import --file=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### Generate man-pages (for linux, mac)

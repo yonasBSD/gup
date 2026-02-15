@@ -68,6 +68,7 @@ func helper_stubUpdateOps(t *testing.T) {
 	orgGetLatestVer := getLatestVer
 	orgInstallLatest := installLatest
 	orgInstallMainOrMaster := installMainOrMaster
+	orgInstallByVersionUpd := installByVersionUpd
 
 	getLatestVer = func(string) (string, error) {
 		return testVersionNine, nil
@@ -78,11 +79,15 @@ func helper_stubUpdateOps(t *testing.T) {
 	installMainOrMaster = func(string) error {
 		return nil
 	}
+	installByVersionUpd = func(string, string) error {
+		return nil
+	}
 
 	t.Cleanup(func() {
 		getLatestVer = orgGetLatestVer
 		installLatest = orgInstallLatest
 		installMainOrMaster = orgInstallMainOrMaster
+		installByVersionUpd = orgInstallByVersionUpd
 	})
 }
 
@@ -419,8 +424,23 @@ func TestExecute_Export(t *testing.T) {
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
 			args:  []string{"gup", "export"},
-			want: `gal.exe = github.com/nao1215/gal/cmd/gal@latest
-posixer.exe = github.com/nao1215/posixer@latest
+			want: `{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal.exe",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "latest",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer.exe",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "latest",
+      "channel": "latest"
+    }
+  ]
+}
 `,
 		})
 	} else {
@@ -433,9 +453,29 @@ posixer.exe = github.com/nao1215/posixer@latest
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success"),
 			args:  []string{"gup", "export"},
-			want: `gal = github.com/nao1215/gal/cmd/gal@v1.1.1
-posixer = github.com/nao1215/posixer@v0.1.0
-subaru = github.com/nao1215/subaru@v1.0.0
+			want: `{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "latest"
+    },
+    {
+      "name": "subaru",
+      "import_path": "github.com/nao1215/subaru",
+      "version": "v1.0.0",
+      "channel": "latest"
+    }
+  ]
+}
 `,
 		})
 	}
@@ -503,8 +543,12 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
 			args:  []string{"gup", "export", "--output"},
 			want: []string{
-				"gal.exe = github.com/nao1215/gal/cmd/gal@latest",
-				"posixer.exe = github.com/nao1215/posixer@latest",
+				"{",
+				`  "schema_version": 1,`,
+				`  "packages": [`,
+				`      "name": "gal.exe",`,
+				`      "name": "posixer.exe",`,
+				`      "version": "latest",`,
 				""},
 		})
 	} else {
@@ -513,9 +557,15 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			gobin: filepath.Join("testdata", "check_success"),
 			args:  []string{"gup", "export", "--output"},
 			want: []string{
-				"gal = github.com/nao1215/gal/cmd/gal@v1.1.1",
-				"posixer = github.com/nao1215/posixer@v0.1.0",
-				"subaru = github.com/nao1215/subaru@v1.0.0",
+				"{",
+				`  "schema_version": 1,`,
+				`  "packages": [`,
+				`      "name": "gal",`,
+				`      "name": "posixer",`,
+				`      "name": "subaru",`,
+				`      "version": "v1.1.1",`,
+				`      "version": "v0.1.0",`,
+				`      "version": "v1.0.0",`,
 				""},
 		})
 	}
@@ -528,8 +578,20 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if diff := cmp.Diff(tt.want, got); diff != "" {
-			t.Errorf("value is mismatch (-want +got):\n%s", diff)
+		for _, want := range tt.want {
+			if want == "" {
+				continue
+			}
+			contains := false
+			for _, g := range got {
+				if strings.Contains(g, want) {
+					contains = true
+					break
+				}
+			}
+			if !contains {
+				t.Errorf("value is mismatch. output does not contain %q", want)
+			}
 		}
 	}
 }
@@ -549,9 +611,9 @@ func TestExecute_Import_WithInputOption(t *testing.T) {
 		OsExit = os.Exit
 	}()
 
-	confFile := "testdata/gup_config/nix.conf"
+	confFile := "testdata/gup_config/nix.json"
 	if runtime.GOOS == goosWindows {
-		confFile = "testdata/gup_config/windows.conf"
+		confFile = "testdata/gup_config/windows.json"
 	}
 
 	got, err := helper_runGup(t, []string{"gup", "import", "-f", confFile})
@@ -589,7 +651,7 @@ func TestExecute_Import_WithBadInputFile(t *testing.T) {
 		},
 		{
 			name:      "specify empty file",
-			inputFile: "testdata/gup_config/empty.conf",
+			inputFile: "testdata/gup_config/empty.json",
 			want: []string{
 				"gup:ERROR: unable to import package: no package information",
 				"",

@@ -22,13 +22,13 @@ var installByVersion = goutil.Install //nolint:gochecknoglobals // swapped in te
 func newImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import",
-		Short: "Install command according to gup.conf.",
-		Long: `Install command according to gup.conf.
+		Short: "Install command according to gup.json.",
+		Long: `Install command according to gup.json.
 	
 Use the export subcommand if you want to install the same golang
-binaries across multiple systems. After you create gup.conf by 
+binaries across multiple systems. After you create gup.json by 
 import subcommand in another environment, you save conf-file in
-$XDG_CONFIG_HOME/.config/gup/gup.conf (e.g. $HOME/.config/gup/gup.conf.)
+$XDG_CONFIG_HOME/.config/gup/gup.json (e.g. $HOME/.config/gup/gup.json.)
 Finally, you execute the export subcommand in this state.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
@@ -39,8 +39,8 @@ Finally, you execute the export subcommand in this state.`,
 
 	cmd.Flags().BoolP("dry-run", "n", false, "perform the trial update with no changes")
 	cmd.Flags().BoolP("notify", "N", false, "enable desktop notifications")
-	cmd.Flags().StringP("file", "f", "", "specify gup.conf file path to import")
-	if err := cmd.MarkFlagFilename("file", "conf"); err != nil {
+	cmd.Flags().StringP("file", "f", "", "specify gup.json file path to import")
+	if err := cmd.MarkFlagFilename("file", "json"); err != nil {
 		panic(err)
 	}
 	cmd.Flags().IntP("jobs", "j", runtime.NumCPU(), "Specify the number of CPU cores to use")
@@ -184,14 +184,14 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 
 func versionFromConfig(pkg goutil.Package) (string, error) {
 	if pkg.Version == nil {
-		return "", errors.New("version is missing in gup.conf")
+		return "", errors.New("version is missing in gup.json")
 	}
 	ver := strings.TrimSpace(pkg.Version.Current)
 	if ver == "" {
-		return "", errors.New("version is empty in gup.conf")
+		return "", errors.New("version is empty in gup.json")
 	}
 	if ver == "(devel)" || ver == "devel" {
-		return "latest", nil
+		return latestKeyword, nil
 	}
 	return ver, nil
 }

@@ -193,13 +193,16 @@ func Test_gup_ignoreGoUpdateFlag(t *testing.T) {
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
+	origInstallByVersionUpd := installByVersionUpd
 	getLatestVer = func(string) (string, error) { return testVersionZero, nil }
 	installLatest = func(string) error { return nil }
 	installMainOrMaster = func(string) error { return nil }
+	installByVersionUpd = func(string, string) error { return nil }
 	defer func() {
 		getLatestVer = origGetLatest
 		installLatest = origInstallLatest
 		installMainOrMaster = origInstallMain
+		installByVersionUpd = origInstallByVersionUpd
 	}()
 
 	OsExit = func(code int) {}
@@ -251,6 +254,7 @@ func Test_gup_dryRun(t *testing.T) {
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
+	origInstallByVersionUpd := installByVersionUpd
 	getLatestVer = func(string) (string, error) { return testVersionNine, nil }
 	installLatest = func(string) error {
 		installCalled.Store(true)
@@ -260,10 +264,15 @@ func Test_gup_dryRun(t *testing.T) {
 		installCalled.Store(true)
 		return nil
 	}
+	installByVersionUpd = func(string, string) error {
+		installCalled.Store(true)
+		return nil
+	}
 	defer func() {
 		getLatestVer = origGetLatest
 		installLatest = origInstallLatest
 		installMainOrMaster = origInstallMain
+		installByVersionUpd = origInstallByVersionUpd
 	}()
 
 	OsExit = func(code int) {}
@@ -481,13 +490,16 @@ func Test_gup_jobsClamp(t *testing.T) {
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
+	origInstallByVersionUpd := installByVersionUpd
 	getLatestVer = func(string) (string, error) { return testVersionZero, nil }
 	installLatest = func(string) error { return nil }
 	installMainOrMaster = func(string) error { return nil }
+	installByVersionUpd = func(string, string) error { return nil }
 	defer func() {
 		getLatestVer = origGetLatest
 		installLatest = origInstallLatest
 		installMainOrMaster = origInstallMain
+		installByVersionUpd = origInstallByVersionUpd
 	}()
 
 	OsExit = func(code int) {}
@@ -602,10 +614,12 @@ func Test_update_modulePathChangedOnGetLatest(t *testing.T) {
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
+	origInstallByVersionUpd := installByVersionUpd
 	defer func() {
 		getLatestVer = origGetLatest
 		installLatest = origInstallLatest
 		installMainOrMaster = origInstallMain
+		installByVersionUpd = origInstallByVersionUpd
 	}()
 
 	var latestCalls []string
@@ -627,6 +641,10 @@ func Test_update_modulePathChangedOnGetLatest(t *testing.T) {
 	}
 	installMainOrMaster = func(string) error {
 		t.Fatal("installMainOrMaster should not be called")
+		return nil
+	}
+	installByVersionUpd = func(string, string) error {
+		t.Fatal("installByVersionUpd should not be called")
 		return nil
 	}
 
@@ -667,15 +685,21 @@ func Test_update_modulePathChangedOnInstall(t *testing.T) {
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
+	origInstallByVersionUpd := installByVersionUpd
 	defer func() {
 		getLatestVer = origGetLatest
 		installLatest = origInstallLatest
 		installMainOrMaster = origInstallMain
+		installByVersionUpd = origInstallByVersionUpd
 	}()
 
 	getLatestVer = func(string) (string, error) { return testVersionNine, nil }
 	installMainOrMaster = func(string) error {
 		t.Fatal("installMainOrMaster should not be called")
+		return nil
+	}
+	installByVersionUpd = func(string, string) error {
+		t.Fatal("installByVersionUpd should not be called")
 		return nil
 	}
 

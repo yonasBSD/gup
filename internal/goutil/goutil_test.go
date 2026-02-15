@@ -593,6 +593,30 @@ func TestGetPackageInformation_std_cmd_filtered(t *testing.T) {
 	}
 }
 
+func TestNormalizeUpdateChannel(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want UpdateChannel
+	}{
+		{name: "latest", in: "latest", want: UpdateChannelLatest},
+		{name: "main", in: "main", want: UpdateChannelMain},
+		{name: "master", in: "master", want: UpdateChannelMaster},
+		{name: "upper case", in: "MAIN", want: UpdateChannelMain},
+		{name: "blank defaults latest", in: "", want: UpdateChannelLatest},
+		{name: "unknown defaults latest", in: "snapshot", want: UpdateChannelLatest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizeUpdateChannel(tt.in)
+			if got != tt.want {
+				t.Errorf("NormalizeUpdateChannel(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 // ============================================================================
 //  Methods
 // ============================================================================

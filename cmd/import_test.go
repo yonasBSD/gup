@@ -30,7 +30,7 @@ func Test_runImport_flagErrors(t *testing.T) {
 			cmd: func() *cobra.Command {
 				c := &cobra.Command{}
 				c.Flags().Bool("dry-run", false, "")
-				c.Flags().String("file", "gup.conf", "")
+				c.Flags().String("file", "gup.json", "")
 				return c
 			}(),
 			want: 1,
@@ -40,7 +40,7 @@ func Test_runImport_flagErrors(t *testing.T) {
 			cmd: func() *cobra.Command {
 				c := &cobra.Command{}
 				c.Flags().Bool("dry-run", false, "")
-				c.Flags().String("file", "gup.conf", "")
+				c.Flags().String("file", "gup.json", "")
 				c.Flags().Bool("notify", false, "")
 				return c
 			}(),
@@ -74,7 +74,7 @@ func Test_runImport_flagErrors(t *testing.T) {
 
 func Test_runImport_fileNotFound(t *testing.T) {
 	cmd := newImportCmd()
-	if err := cmd.Flags().Set("file", "/no/such/file.conf"); err != nil {
+	if err := cmd.Flags().Set("file", "/no/such/file.json"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -108,7 +108,7 @@ func Test_runImport_fileNotFound(t *testing.T) {
 func Test_runImport_emptyConf(t *testing.T) {
 	// Create a temporary conf file with no packages
 	tmpDir := t.TempDir()
-	confPath := filepath.Join(tmpDir, "empty.conf")
+	confPath := filepath.Join(tmpDir, "empty.json")
 	if err := os.WriteFile(confPath, []byte(""), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func Test_runImport_emptyConf(t *testing.T) {
 func Test_runImport_jobsClamp(t *testing.T) {
 	// Create a conf file that will be found but has no packages
 	tmpDir := t.TempDir()
-	confPath := filepath.Join(tmpDir, "test.conf")
+	confPath := filepath.Join(tmpDir, "test.json")
 	if err := os.WriteFile(confPath, []byte(""), 0o600); err != nil {
 		t.Fatal(err)
 	}

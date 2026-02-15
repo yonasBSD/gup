@@ -21,6 +21,18 @@ import (
 
 const unknown = "unknown"
 
+// UpdateChannel is the update source channel for go install.
+type UpdateChannel string
+
+const (
+	// UpdateChannelLatest updates by @latest.
+	UpdateChannelLatest UpdateChannel = "latest"
+	// UpdateChannelMain updates by @main (and fallback to @master if main is missing).
+	UpdateChannelMain UpdateChannel = "main"
+	// UpdateChannelMaster updates by @master.
+	UpdateChannelMaster UpdateChannel = "master"
+)
+
 // Internal variables to mock/monkey-patch behaviors in tests.
 var (
 	// goExe is the executable name for the go command.
@@ -56,6 +68,8 @@ type Package struct {
 	Version *Version
 	// GoVersion stores version of Go toolchain
 	GoVersion *Version
+	// UpdateChannel stores preferred update channel.
+	UpdateChannel UpdateChannel
 }
 
 // Version is package version information.
@@ -71,6 +85,21 @@ func NewVersion() *Version {
 	return &Version{
 		Current: "",
 		Latest:  "",
+	}
+}
+
+// NormalizeUpdateChannel normalizes a user/config value into a valid channel.
+// Unknown or blank values are treated as "latest".
+func NormalizeUpdateChannel(channel string) UpdateChannel {
+	switch strings.ToLower(strings.TrimSpace(channel)) {
+	case string(UpdateChannelMain):
+		return UpdateChannelMain
+	case string(UpdateChannelMaster):
+		return UpdateChannelMaster
+	case string(UpdateChannelLatest):
+		return UpdateChannelLatest
+	default:
+		return UpdateChannelLatest
 	}
 }
 

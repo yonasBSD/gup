@@ -15,15 +15,15 @@ import (
 func newExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "Export the binary names under $GOPATH/bin and their path info. to gup.conf.",
-		Long: `Export the binary names under $GOPATH/bin and their path info. to gup.conf.
+		Short: "Export the binary names under $GOPATH/bin and their path info. to gup.json.",
+		Long: `Export the binary names under $GOPATH/bin and their path info. to gup.json.
 	
 Use the export subcommand if you want to install the same golang
 binaries across multiple systems. By default, this sub-command 
-exports the file to $XDG_CONFIG_HOME/.config/gup/gup.conf (e.g. $HOME/.config/gup/gup.conf.) 
-After you have placed gup.conf in the same path hierarchy on
+exports the file to $XDG_CONFIG_HOME/.config/gup/gup.json (e.g. $HOME/.config/gup/gup.json.) 
+After you have placed gup.json in the same path hierarchy on
 another system, you execute import subcommand. gup start the
-installation according to the contents of gup.conf.`,
+installation according to the contents of gup.json.`,
 		Args:              cobra.NoArgs,
 		ValidArgsFunction: cobra.NoFileCompletions,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -31,8 +31,8 @@ installation according to the contents of gup.conf.`,
 		},
 	}
 	cmd.Flags().BoolP("output", "o", false, "print command path information at STDOUT")
-	cmd.Flags().StringP("file", "f", "", "specify gup.conf file path to export")
-	if err := cmd.MarkFlagFilename("file", "conf"); err != nil {
+	cmd.Flags().StringP("file", "f", "", "specify gup.json file path to export")
+	if err := cmd.MarkFlagFilename("file", "json"); err != nil {
 		panic(err)
 	}
 
@@ -55,6 +55,7 @@ func export(cmd *cobra.Command, _ []string) int {
 		print.Err(err)
 		return 1
 	}
+	configPath = config.ResolveExportFilePath(configPath)
 
 	pkgs, err := getPackageInfo()
 	if err != nil {
@@ -62,6 +63,8 @@ func export(cmd *cobra.Command, _ []string) int {
 		return 1
 	}
 	pkgs = validPkgInfo(pkgs)
+	confPkgs := readConfFileIfExists(configPath)
+	pkgs = applySavedChannels(pkgs, confPkgs)
 
 	if len(pkgs) == 0 {
 		print.Err("no package information")
@@ -71,7 +74,7 @@ func export(cmd *cobra.Command, _ []string) int {
 	if output {
 		err = outputConfig(pkgs)
 	} else {
-		err = writeConfigFile(config.ResolveExportFilePath(configPath), pkgs)
+		err = writeConfigFile(configPath, pkgs)
 	}
 	if err != nil {
 		print.Err(err)
@@ -115,6 +118,24 @@ func validPkgInfo(pkgs []goutil.Package) []goutil.Package {
 			continue
 		}
 		result = append(result, goutil.Package{Name: v.Name, ImportPath: v.ImportPath, Version: v.Version})
+	}
+	return result
+}
+
+func applySavedChannels(pkgs, confPkgs []goutil.Package) []goutil.Package {
+	channelByName := make(map[string]goutil.UpdateChannel, len(confPkgs))
+	for _, p := range confPkgs {
+		channelByName[p.Name] = goutil.NormalizeUpdateChannel(string(p.UpdateChannel))
+	}
+
+	result := make([]goutil.Package, 0, len(pkgs))
+	for _, p := range pkgs {
+		channel, ok := channelByName[p.Name]
+		if !ok {
+			channel = goutil.UpdateChannelLatest
+		}
+		p.UpdateChannel = channel
+		result = append(result, p)
 	}
 	return result
 }

@@ -50,12 +50,14 @@ func TestDirAndFilePath(t *testing.T) { //nolint:paralleltest // modifies xdg gl
 
 func TestWriteConfFile(t *testing.T) {
 	t.Parallel()
+
 	var buf bytes.Buffer
 	pkgs := []goutil.Package{
 		{
-			Name:       "foo",
-			ImportPath: "example.com/foo",
-			Version:    &goutil.Version{Current: "v1.2.3"},
+			Name:          "foo",
+			ImportPath:    "example.com/foo",
+			Version:       &goutil.Version{Current: "v1.2.3"},
+			UpdateChannel: goutil.UpdateChannelMain,
 		},
 		{
 			Name:       "bar",
@@ -72,7 +74,30 @@ func TestWriteConfFile(t *testing.T) {
 		t.Fatalf("WriteConfFile() error = %v", err)
 	}
 
-	want := "foo = example.com/foo@v1.2.3\nbar = example.com/bar@latest\nbaz = example.com/baz@latest\n"
+	want := `{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "foo",
+      "import_path": "example.com/foo",
+      "version": "v1.2.3",
+      "channel": "main"
+    },
+    {
+      "name": "bar",
+      "import_path": "example.com/bar",
+      "version": "latest",
+      "channel": "latest"
+    },
+    {
+      "name": "baz",
+      "import_path": "example.com/baz",
+      "version": "latest",
+      "channel": "latest"
+    }
+  ]
+}
+`
 	if got := buf.String(); got != want {
 		t.Fatalf("WriteConfFile() output = %q, want %q", got, want)
 	}
@@ -82,8 +107,24 @@ func TestReadConfFile(t *testing.T) { //nolint:paralleltest // modifies xdg glob
 	cleanup := withTempXDG(t)
 	defer cleanup()
 
-	confPath := filepath.Join(xdg.ConfigHome, "gup.conf")
-	content := "foo = example.com/foo@v1.2.3\n# comment\nbar = example.com/bar@v4.5.6\n"
+	confPath := filepath.Join(xdg.ConfigHome, "gup.json")
+	content := `{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "foo",
+      "import_path": "example.com/foo",
+      "version": "v1.2.3",
+      "channel": "main"
+    },
+    {
+      "name": "bar",
+      "import_path": "example.com/bar",
+      "version": "v4.5.6",
+      "channel": "master"
+    }
+  ]
+}`
 	if err := os.WriteFile(confPath, []byte(content), 0o600); err != nil {
 		t.Fatalf("failed to write temp conf file: %v", err)
 	}
@@ -101,25 +142,34 @@ func TestReadConfFile(t *testing.T) { //nolint:paralleltest // modifies xdg glob
 	if pkgs[0].Version == nil || pkgs[0].Version.Current != "v1.2.3" {
 		t.Fatalf("first pkg version mismatch: %+v", pkgs[0].Version)
 	}
+	if pkgs[0].UpdateChannel != goutil.UpdateChannelMain {
+		t.Fatalf("first pkg channel mismatch: %s", pkgs[0].UpdateChannel)
+	}
 	if pkgs[1].Name != "bar" || pkgs[1].ImportPath != "example.com/bar" {
 		t.Fatalf("second pkg mismatch: %+v", pkgs[1])
 	}
 	if pkgs[1].Version == nil || pkgs[1].Version.Current != "v4.5.6" {
 		t.Fatalf("second pkg version mismatch: %+v", pkgs[1].Version)
 	}
+	if pkgs[1].UpdateChannel != goutil.UpdateChannelMaster {
+		t.Fatalf("second pkg channel mismatch: %s", pkgs[1].UpdateChannel)
+	}
 }
 
-func TestReadConfFile_OldFormat(t *testing.T) {
+func TestReadConfFile_Empty(t *testing.T) {
 	t.Parallel()
 
-	confPath := filepath.Join(t.TempDir(), "gup.conf")
-	content := "foo = example.com/foo\n"
-	if err := os.WriteFile(confPath, []byte(content), 0o600); err != nil {
+	confPath := filepath.Join(t.TempDir(), "gup.json")
+	if err := os.WriteFile(confPath, []byte(""), 0o600); err != nil {
 		t.Fatalf("failed to write temp conf file: %v", err)
 	}
 
-	if _, err := ReadConfFile(confPath); err == nil {
-		t.Fatal("ReadConfFile() should return error for old format")
+	pkgs, err := ReadConfFile(confPath)
+	if err != nil {
+		t.Fatalf("ReadConfFile() error = %v", err)
+	}
+	if len(pkgs) != 0 {
+		t.Fatalf("ReadConfFile() len = %d, want 0", len(pkgs))
 	}
 }
 
@@ -131,16 +181,26 @@ func TestReadConfFile_InvalidFormat(t *testing.T) {
 		content string
 	}{
 		{
-			name:    "extra equals in version",
-			content: "foo = example.com/foo@v1.2.3=dirty\n",
+			name:    "invalid json",
+			content: `{"schema_version": 1,`,
 		},
 		{
-			name:    "extra equals in import path",
-			content: "foo = example.com/fo=o@v1.2.3\n",
+			name:    "unsupported schema",
+			content: `{"schema_version": 99, "packages": []}`,
 		},
 		{
-			name:    "multiple at signs",
-			content: "foo = example.com/foo@v1.2.3@dirty\n",
+			name: "invalid package entry",
+			content: `{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "",
+      "import_path": "example.com/foo",
+      "version": "v1.2.3",
+      "channel": "latest"
+    }
+  ]
+}`,
 		},
 	}
 
@@ -149,7 +209,7 @@ func TestReadConfFile_InvalidFormat(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			confPath := filepath.Join(t.TempDir(), "gup.conf")
+			confPath := filepath.Join(t.TempDir(), "gup.json")
 			if err := os.WriteFile(confPath, []byte(tt.content), 0o600); err != nil {
 				t.Fatalf("failed to write temp conf file: %v", err)
 			}
@@ -178,7 +238,7 @@ func TestResolveImportFilePath(t *testing.T) { //nolint:paralleltest // changes 
 		t.Fatal(err)
 	}
 
-	custom := filepath.Join(t.TempDir(), "custom.conf")
+	custom := filepath.Join(t.TempDir(), "custom.json")
 	if got := ResolveImportFilePath(custom); got != custom {
 		t.Fatalf("ResolveImportFilePath(explicit) = %s, want %s", got, custom)
 	}
@@ -210,7 +270,7 @@ func TestResolveImportFilePath(t *testing.T) { //nolint:paralleltest // changes 
 func TestResolveExportFilePath(t *testing.T) {
 	t.Parallel()
 
-	custom := filepath.Join(t.TempDir(), "custom.conf")
+	custom := filepath.Join(t.TempDir(), "custom.json")
 	if got := ResolveExportFilePath(custom); got != custom {
 		t.Fatalf("ResolveExportFilePath(explicit) = %s, want %s", got, custom)
 	}

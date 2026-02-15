@@ -2,8 +2,8 @@
 package config
 
 import (
-	"bufio"
-	"errors"
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -18,14 +18,27 @@ import (
 )
 
 // ConfigFileName is gup command configuration file
-const ConfigFileName = "gup.conf"
+const ConfigFileName = "gup.json"
+const configSchemaVersion = 1
+
+type configFile struct {
+	SchemaVersion int             `json:"schema_version"`
+	Packages      []configPackage `json:"packages"`
+}
+
+type configPackage struct {
+	Name       string `json:"name"`
+	ImportPath string `json:"import_path"`
+	Version    string `json:"version"`
+	Channel    string `json:"channel"`
+}
 
 // FilePath return configuration-file path.
 func FilePath() string {
 	return filepath.Join(DirPath(), ConfigFileName)
 }
 
-// LocalFilePath returns the path to gup.conf in the current directory.
+// LocalFilePath returns the path to gup.json in the current directory.
 func LocalFilePath() string {
 	return filepath.Join(".", ConfigFileName)
 }
@@ -37,7 +50,7 @@ func DirPath() string {
 }
 
 // ResolveImportFilePath resolves config file path for import.
-// Priority: explicit path > default config path (if exists) > ./gup.conf (if exists) > default config path.
+// Priority: explicit path > default config path (if exists) > ./gup.json (if exists) > default config path.
 func ResolveImportFilePath(explicitPath string) string {
 	explicitPath = strings.TrimSpace(explicitPath)
 	if explicitPath != "" {
@@ -68,52 +81,40 @@ func ResolveExportFilePath(explicitPath string) string {
 
 // ReadConfFile return contents of configuration-file (package information)
 func ReadConfFile(path string) ([]goutil.Package, error) {
-	contents, err := readFileToList(path)
+	raw, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {
 		return nil, fmt.Errorf("can't read %s: %w", path, err)
 	}
+	if len(bytes.TrimSpace(raw)) == 0 {
+		return []goutil.Package{}, nil
+	}
 
-	pkgs := []goutil.Package{}
-	for _, v := range contents {
-		pkg := goutil.Package{}
-		binVer := goutil.Version{Current: "", Latest: ""}
-		goVer := goutil.Version{Current: "<from gup.conf>", Latest: ""}
+	conf := configFile{}
+	if err := json.Unmarshal(raw, &conf); err != nil {
+		return nil, fmt.Errorf("%s is not valid JSON: %w", path, err)
+	}
+	if conf.SchemaVersion != configSchemaVersion {
+		return nil, fmt.Errorf("%s has unsupported schema_version: %d", path, conf.SchemaVersion)
+	}
 
-		v = deleteComment(v)
-		if isBlank(v) {
-			continue
-		}
-
-		name, rest, found := strings.Cut(v, "=")
-		if !found {
-			return nil, errors.New(path + " is not gup.conf file")
-		}
-		name = strings.TrimSpace(name)
-		rest = strings.TrimSpace(rest)
-		if strings.Contains(rest, "=") {
-			return nil, errors.New(path + " is not gup.conf file")
-		}
-
-		atCount := strings.Count(rest, "@")
-		if atCount == 0 {
-			return nil, fmt.Errorf("%s is old gup.conf format. expected '<name> = <import-path>@<version>'", path)
-		}
-		if atCount != 1 {
-			return nil, errors.New(path + " is not gup.conf file")
-		}
-		importPath, version, _ := strings.Cut(rest, "@")
-		importPath = strings.TrimSpace(importPath)
-		version = strings.TrimSpace(version)
+	pkgs := make([]goutil.Package, 0, len(conf.Packages))
+	for i, v := range conf.Packages {
+		name := strings.TrimSpace(v.Name)
+		importPath := strings.TrimSpace(v.ImportPath)
+		version := strings.TrimSpace(v.Version)
 		if name == "" || importPath == "" || version == "" {
-			return nil, errors.New(path + " is not gup.conf file")
+			return nil, fmt.Errorf("%s contains invalid package entry at index %d", path, i)
 		}
 
-		pkg.Name = name
-		pkg.ImportPath = importPath
-		binVer.Current = version
-		pkg.Version = pointer.Ptr(binVer)
-		pkg.GoVersion = pointer.Ptr(goVer)
-		pkgs = append(pkgs, pkg)
+		binVer := goutil.Version{Current: version, Latest: ""}
+		goVer := goutil.Version{Current: "<from gup.json>", Latest: ""}
+		pkgs = append(pkgs, goutil.Package{
+			Name:          name,
+			ImportPath:    importPath,
+			Version:       pointer.Ptr(binVer),
+			GoVersion:     pointer.Ptr(goVer),
+			UpdateChannel: goutil.NormalizeUpdateChannel(v.Channel),
+		})
 	}
 
 	return pkgs, nil
@@ -121,31 +122,36 @@ func ReadConfFile(path string) ([]goutil.Package, error) {
 
 // WriteConfFile write package information at configuration-file.
 func WriteConfFile(file io.Writer, pkgs []goutil.Package) error {
-	var builder strings.Builder
+	conf := configFile{
+		SchemaVersion: configSchemaVersion,
+		Packages:      make([]configPackage, 0, len(pkgs)),
+	}
+
 	for _, v := range pkgs {
 		version := "latest"
 		if v.Version != nil {
 			version = normalizeConfVersion(v.Version.Current)
 		}
-		builder.WriteString(fmt.Sprintf("%s = %s@%s\n", v.Name, v.ImportPath, version))
+		channel := goutil.NormalizeUpdateChannel(string(v.UpdateChannel))
+		conf.Packages = append(conf.Packages, configPackage{
+			Name:       v.Name,
+			ImportPath: v.ImportPath,
+			Version:    version,
+			Channel:    string(channel),
+		})
 	}
 
-	_, err := file.Write([]byte(builder.String()))
+	out, err := json.MarshalIndent(conf, "", "  ")
 	if err != nil {
-		return fmt.Errorf("can't write gup.conf: %w", err)
+		return fmt.Errorf("can't marshal gup.json JSON: %w", err)
+	}
+	out = append(out, '\n')
+
+	_, err = file.Write(out)
+	if err != nil {
+		return fmt.Errorf("can't write gup.json: %w", err)
 	}
 	return nil
-}
-
-func isBlank(line string) bool {
-	line = strings.TrimSpace(line)
-	line = strings.ReplaceAll(line, "\n", "")
-	return len(line) == 0
-}
-
-func deleteComment(line string) string {
-	line, _, _ = strings.Cut(line, "#")
-	return line
 }
 
 func normalizeConfVersion(version string) string {
@@ -154,28 +160,4 @@ func normalizeConfVersion(version string) string {
 		return "latest"
 	}
 	return version
-}
-
-// readFileToList convert file content to string list.
-func readFileToList(path string) (_ []string, err error) {
-	var strList []string
-	f, err := os.Open(filepath.Clean(path))
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = closeErr
-		}
-	}()
-
-	scanner := bufio.NewScanner(f)
-	for scanner.Scan() {
-		strList = append(strList, scanner.Text())
-	}
-	if err := scanner.Err(); err != nil {
-		return nil, err
-	}
-
-	return strList, nil
 }
