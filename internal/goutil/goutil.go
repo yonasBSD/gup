@@ -182,6 +182,7 @@ func (gp *GoPaths) StartDryRunMode() error {
 	if err != nil {
 		return err
 	}
+	gp.TmpPath = tmpDir
 
 	switch {
 	case gp.GOBIN != "":

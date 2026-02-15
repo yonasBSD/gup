@@ -653,6 +653,44 @@ func TestGoPaths_StartDryRunMode_fail_to_get_temp_dir(t *testing.T) {
 	}
 }
 
+func TestGoPaths_StartDryRunMode_setsTmpPath(t *testing.T) {
+	t.Setenv("GOBIN", t.Name())
+	t.Setenv("GOPATH", "")
+
+	gp := NewGoPaths()
+	if gp.GOBIN == "" {
+		t.Fatal("test setup failed: GOBIN should not be empty")
+	}
+
+	if err := gp.StartDryRunMode(); err != nil {
+		t.Fatalf("StartDryRunMode() should return no error. got: %v", err)
+	}
+
+	if gp.TmpPath == "" {
+		t.Fatal("StartDryRunMode() should set TmpPath")
+	}
+
+	if got := os.Getenv("GOBIN"); got != gp.TmpPath {
+		t.Fatalf("StartDryRunMode() should set GOBIN to TmpPath. got: %s, want: %s", got, gp.TmpPath)
+	}
+
+	if _, err := os.Stat(gp.TmpPath); err != nil {
+		t.Fatalf("temporary directory should exist while dry-run is active. err: %v", err)
+	}
+
+	if err := gp.EndDryRunMode(); err != nil {
+		t.Fatalf("EndDryRunMode() should return no error. got: %v", err)
+	}
+
+	if got := os.Getenv("GOBIN"); got != t.Name() {
+		t.Fatalf("EndDryRunMode() should restore GOBIN. got: %s, want: %s", got, t.Name())
+	}
+
+	if _, err := os.Stat(gp.TmpPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temporary directory should be removed after EndDryRunMode(). err: %v", err)
+	}
+}
+
 func TestGoPaths_StartDryRunMode_fail_if_key_not_set(t *testing.T) {
 	// Backup and defer restore
 	oldKeyGoBin := keyGoBin
