@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"net/url"
+	"strings"
 
+	"github.com/nao1215/gup/internal/cmdinfo"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +30,10 @@ type openBrowserFunc func(string) bool
 // bugReport opens the default browser to start a bug report which will include useful system information.
 func bugReport(cmd *cobra.Command, _ []string, openBrowser openBrowserFunc) int {
 	var buf bytes.Buffer
+	version := strings.TrimSpace(cmd.Version)
+	if version == "" {
+		version = cmdinfo.GetVersion()
+	}
 
 	const (
 		description = `## Description (About the problem)
@@ -46,7 +52,7 @@ Expected behavior.
 Any other useful data to share.
 `
 	)
-	buf.WriteString(fmt.Sprintf("## gup version\n%s\n\n", cmd.Version))
+	buf.WriteString(fmt.Sprintf("## gup version\n%s\n\n", version))
 	buf.WriteString(description)
 	buf.WriteString(toReproduce)
 	buf.WriteString(expectedBehavior)

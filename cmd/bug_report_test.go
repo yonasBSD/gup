@@ -62,3 +62,20 @@ func Test_bugReport(t *testing.T) {
 		t.Errorf("bugReport() = %d; want %d", gotReturnVal, wantReturnVal)
 	}
 }
+
+func Test_bugReport_fallbackVersion(t *testing.T) {
+	t.Parallel()
+
+	cmd := newBugReportCmd()
+	cmd.Version = ""
+
+	gotReturnVal := bugReport(cmd, nil, func(s string) bool {
+		if !strings.Contains(s, "gup+version") {
+			t.Errorf("expected bug report URL to contain gup version section, but got: %s", s)
+		}
+		return true
+	})
+	if gotReturnVal != 0 {
+		t.Errorf("bugReport() = %d; want %d", gotReturnVal, 0)
+	}
+}
