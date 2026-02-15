@@ -10,7 +10,9 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/nao1215/gup/internal/goutil"
@@ -179,6 +181,22 @@ func Test_extractUserSpecifyPkg(t *testing.T) {
 				t.Errorf("value is mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func Test_catchSignal(t *testing.T) {
+	signals := make(chan os.Signal, 1)
+	done := make(chan struct{})
+
+	go catchSignal(signals, func() {
+		close(done)
+	})
+	signals <- syscall.SIGINT
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("catchSignal should call cancel function")
 	}
 }
 

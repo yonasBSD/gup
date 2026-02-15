@@ -104,6 +104,8 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 	result := 0
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
 	dryRunManager := goutil.NewGoPaths()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	signals := make(chan os.Signal, 1)
 	if dryRun {
@@ -113,7 +115,7 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 		}
 		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP,
 			syscall.SIGQUIT, syscall.SIGABRT)
-		go catchSignal(signals, dryRunManager)
+		go catchSignal(signals, cancel)
 	}
 
 	installer := func(_ context.Context, p goutil.Package) updateResult {
@@ -148,7 +150,7 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 		}
 	}
 
-	ch := forEachPackage(context.Background(), pkgs, cpus, installer)
+	ch := forEachPackage(ctx, pkgs, cpus, installer)
 
 	count := 0
 	for v := range ch {

@@ -210,6 +210,8 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
 	dryRunManager := goutil.NewGoPaths()
 	succeededPkgs := make([]goutil.Package, 0, len(pkgs))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
 	print.Info("update binary under $GOPATH/bin or $GOBIN")
 	signals := make(chan os.Signal, 1)
@@ -221,7 +223,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 		}
 		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP,
 			syscall.SIGQUIT, syscall.SIGABRT)
-		go catchSignal(signals, dryRunManager)
+		go catchSignal(signals, cancel)
 	}
 
 	updater := func(_ context.Context, p goutil.Package) updateResult {
@@ -305,7 +307,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 	}
 
 	// update all packages
-	ch := forEachPackage(context.Background(), pkgs, cpus, updater)
+	ch := forEachPackage(ctx, pkgs, cpus, updater)
 
 	// print result
 	count := 0
@@ -348,11 +350,9 @@ func desktopNotifyIfNeeded(result int, enable bool) {
 	}
 }
 
-func catchSignal(c chan os.Signal, dryRunManager *goutil.GoPaths) {
+func catchSignal(c <-chan os.Signal, cancel context.CancelFunc) {
 	if _, ok := <-c; ok {
-		if err := dryRunManager.EndDryRunMode(); err != nil {
-			print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
-		}
+		cancel()
 	}
 }
 
