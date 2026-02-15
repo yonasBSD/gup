@@ -1,24 +1,54 @@
-## [Unreleased]
+## [v1.0.0](https://github.com/nao1215/gup/compare/v0.28.3...v1.0.0) (2026-02-15)
 
 ### ⚠ BREAKING CHANGES
 
-* import/export config format changed from `<name> = <import-path>` to `<name> = <import-path>@<version>`
-* `gup import` now installs the version written in `gup.conf`
+* Config format changed from plain-text `gup.conf` (`<name> = <import-path>`) to JSON `gup.json` with versioned schema
+* `gup import` now installs the exact version recorded in `gup.json`
 * `gup import` flag changed from `--input` to `--file`
+* `gup export` flag changed from `--output` to `--file`
 
 ### Features
 
-* Add config path resolution for import (`$XDG_CONFIG_HOME/gup/gup.conf` first, then `./gup.conf`)
-* Add `--file` option to export
+* Store update channels (`latest` / `main` / `master`) in `gup.json`
+* Auto-adapt to module path changes (detect and follow import path renames)
+* Add config path resolution (`$XDG_CONFIG_HOME/gup/gup.json` first, then `./gup.json`)
+* Add `--file` option to both import and export
+* Always include version in bug-report template
 
 ### Fixes
 
-* Fix dry-run temporary directory lifecycle
-* Avoid real binary updates in root command tests by stubbing installers
+* Persist dry-run temp path for proper cleanup and cancel workers on interrupt signals
+* Validate binary names in `removeOldBinaryIfRenamed` to prevent path traversal
+* Block path traversal in remove targets
+* Warn instead of failing when `gup.json` is corrupt during update
+* Surface `gup.json` parse errors during update
+* Normalize binary names in `--main`/`--master`/`--latest` flag resolution for Windows
+* Remove stale config entries when binary is renamed during update
+* Return original importPath when prefix does not match in `replaceImportPathPrefix`
+* Trim whitespace in `--exclude` package names
+* Require explicit `--install` for completion file writes
+* Validate go command availability in import
+* Exit with status 1 when command execution fails
+* Version coloring: yellow=outdated, green=up-to-date
+* Reject malformed `gup.conf` lines early (legacy format migration)
+* Normalize devel version to latest during import
 
 ### Performance
 
 * Use a fixed worker-pool implementation for package processing
+* Deduplicate `GetLatestVer` calls and parallelize binary info collection
+* Filter binary completions by typed prefix
+
+### Refactoring
+
+* Replace `golang.org/x/exp/slices` with standard `slices` package
+* Share config file writing logic across commands
+* Remove unused update wrapper function and unused first argument from `shouldPersistChannels`
+
+### Tests
+
+* Add tests to increase coverage from 79.6% to 88.7%
+* Stub update operations in root command tests
 
 ## [v0.28.3](https://github.com/nao1215/gup/compare/v0.28.2...v0.28.3) (2026-02-15)
 
