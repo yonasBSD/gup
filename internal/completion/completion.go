@@ -8,8 +8,8 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nao1215/gorky/file"
 	"github.com/nao1215/gup/internal/cmdinfo"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
 )
@@ -41,13 +41,13 @@ func makeBashCompletionFileIfNeeded(cmd *cobra.Command) {
 		return
 	}
 
-	if !file.IsDir(path) {
-		if err := os.MkdirAll(filepath.Dir(path), file.FileModeCreatingDir); err != nil {
+	if !fileutil.IsDir(path) {
+		if err := os.MkdirAll(filepath.Dir(path), fileutil.FileModeCreatingDir); err != nil {
 			print.Err(fmt.Errorf("can not create bash-completion file: %w", err))
 			return
 		}
 	}
-	fp, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE, file.FileModeCreatingFile)
+	fp, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE, fileutil.FileModeCreatingFile)
 	if err != nil {
 		print.Err(fmt.Errorf("can not open .bash_completion: %w", err))
 		return
@@ -69,7 +69,7 @@ func makeFishCompletionFileIfNeeded(cmd *cobra.Command) {
 	}
 
 	path := fishCompletionFilePath()
-	if err := os.MkdirAll(filepath.Dir(path), file.FileModeCreatingDir); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), fileutil.FileModeCreatingDir); err != nil {
 		print.Err(fmt.Errorf("can not create fish-completion file: %w", err))
 		return
 	}
@@ -86,7 +86,7 @@ func makeZshCompletionFileIfNeeded(cmd *cobra.Command) {
 	}
 
 	path := zshCompletionFilePath()
-	if err := os.MkdirAll(filepath.Dir(path), file.FileModeCreatingDir); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), fileutil.FileModeCreatingDir); err != nil {
 		print.Err(fmt.Errorf("can not create zsh-completion file: %w", err))
 		return
 	}
@@ -105,8 +105,8 @@ fpath=(~/.zsh/completion $fpath)
 autoload -Uz compinit && compinit -i
 `
 	zshrcPath := zshrcPath()
-	if !file.IsFile(zshrcPath) {
-		fp, err := os.OpenFile(filepath.Clean(zshrcPath), os.O_RDWR|os.O_CREATE, file.FileModeCreatingFile)
+	if !fileutil.IsFile(zshrcPath) {
+		fp, err := os.OpenFile(filepath.Clean(zshrcPath), os.O_RDWR|os.O_CREATE, fileutil.FileModeCreatingFile)
 		if err != nil {
 			print.Err(fmt.Errorf("can not open .zshrc: %w", err).Error())
 			return
@@ -134,7 +134,7 @@ autoload -Uz compinit && compinit -i
 		return
 	}
 
-	fp, err := os.OpenFile(filepath.Clean(zshrcPath), os.O_RDWR|os.O_APPEND, file.FileModeCreatingFile)
+	fp, err := os.OpenFile(filepath.Clean(zshrcPath), os.O_RDWR|os.O_APPEND, fileutil.FileModeCreatingFile)
 	if err != nil {
 		print.Err(fmt.Errorf("can not open .zshrc: %w", err).Error())
 		return
@@ -152,7 +152,7 @@ autoload -Uz compinit && compinit -i
 }
 
 func existSameBashCompletionFile(cmd *cobra.Command) bool {
-	if !file.IsFile(bashCompletionFilePath()) {
+	if !fileutil.IsFile(bashCompletionFilePath()) {
 		return false
 	}
 	return hasSameBashCompletionContent(cmd)
@@ -177,7 +177,7 @@ func hasSameBashCompletionContent(cmd *cobra.Command) bool {
 
 func isSameFishCompletionFile(cmd *cobra.Command) bool {
 	path := fishCompletionFilePath()
-	if !file.IsFile(path) {
+	if !fileutil.IsFile(path) {
 		return false
 	}
 
@@ -199,7 +199,7 @@ func isSameFishCompletionFile(cmd *cobra.Command) bool {
 
 func isSameZshCompletionFile(cmd *cobra.Command) bool {
 	path := zshCompletionFilePath()
-	if !file.IsFile(path) {
+	if !fileutil.IsFile(path) {
 		return false
 	}
 

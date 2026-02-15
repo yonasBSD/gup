@@ -12,7 +12,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/google/go-cmp/cmp"
-	"github.com/nao1215/gorky/file"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
@@ -204,7 +204,7 @@ func Test_export(t *testing.T) {
 					t.Errorf("value is mismatch (-want +got):\n%s", diff)
 				}
 			} else {
-				if file.IsFile(filepath.Join("/", ".config")) {
+				if fileutil.IsFile(filepath.Join("/", ".config")) {
 					t.Errorf("permissions are incomplete because '/.config' was created")
 				}
 			}

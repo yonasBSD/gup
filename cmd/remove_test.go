@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/nao1215/gorky/file"
+	"github.com/nao1215/gup/internal/fileutil"
 )
 
 func Test_removeLoop(t *testing.T) {
@@ -134,7 +134,7 @@ func Test_removeLoop(t *testing.T) {
 				t.Errorf("removeLoop() = %v, want %v", got, tt.want)
 			}
 
-			if tt.name == "delete cancel" && !file.IsFile(dest) {
+			if tt.name == "delete cancel" && !fileutil.IsFile(dest) {
 				t.Errorf("input no, however posixer command is deleted")
 			}
 		})
