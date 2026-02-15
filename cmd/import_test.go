@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -292,5 +293,103 @@ func Test_versionFromConfig_NormalizeDevel(t *testing.T) {
 				t.Fatalf("versionFromConfig() = %s, want %s", got, tt.want)
 			}
 		})
+	}
+}
+
+func Test_versionFromConfig_ErrorCases(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pkg  goutil.Package
+	}{
+		{
+			name: "nil version",
+			pkg:  goutil.Package{},
+		},
+		{
+			name: "empty version string",
+			pkg: goutil.Package{
+				Version: &goutil.Version{Current: ""},
+			},
+		},
+		{
+			name: "whitespace only",
+			pkg: goutil.Package{
+				Version: &goutil.Version{Current: "   "},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := versionFromConfig(tt.pkg)
+			if err == nil {
+				t.Fatal("versionFromConfig() expected error, got nil")
+			}
+		})
+	}
+}
+
+func Test_installFromConfig_installError(t *testing.T) {
+	originalInstaller := installByVersion
+	t.Cleanup(func() {
+		installByVersion = originalInstaller
+	})
+
+	installByVersion = func(_, _ string) error {
+		return errors.New("install failed")
+	}
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "tool",
+			ImportPath: "github.com/example/tool",
+			Version:    &goutil.Version{Current: "v1.0.0"},
+		},
+	}
+
+	if got := installFromConfig(pkgs, false, false, 1); got != 1 {
+		t.Fatalf("installFromConfig() = %d, want 1", got)
+	}
+}
+
+func Test_installFromConfig_emptyImportPath(t *testing.T) {
+	pkgs := []goutil.Package{
+		{
+			Name:       "tool",
+			ImportPath: "",
+			Version:    &goutil.Version{Current: "v1.0.0"},
+		},
+	}
+
+	if got := installFromConfig(pkgs, false, false, 1); got != 1 {
+		t.Fatalf("installFromConfig() = %d, want 1", got)
+	}
+}
+
+func Test_installFromConfig_dryRun(t *testing.T) {
+	t.Setenv("GOBIN", t.TempDir())
+
+	originalInstaller := installByVersion
+	t.Cleanup(func() {
+		installByVersion = originalInstaller
+	})
+
+	installByVersion = func(_, _ string) error { return nil }
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "tool",
+			ImportPath: "github.com/example/tool",
+			Version:    &goutil.Version{Current: "v1.0.0"},
+		},
+	}
+
+	if got := installFromConfig(pkgs, true, false, 1); got != 0 {
+		t.Fatalf("installFromConfig() dry-run = %d, want 0", got)
 	}
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
+	"github.com/spf13/cobra"
 )
 
 func helper_CopyFile(t *testing.T, src, dst string) {
@@ -189,6 +190,20 @@ func setupXDGBase(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("failed to create XDG directory %s: %v", dir, err)
 		}
+	}
+}
+
+func Test_completeNCPUs(t *testing.T) {
+	got, directive := completeNCPUs(nil, nil, "")
+	if directive != cobra.ShellCompDirectiveNoFileComp {
+		t.Errorf("directive = %v, want NoFileComp", directive)
+	}
+	n := runtime.NumCPU()
+	if len(got) != n {
+		t.Errorf("len(completeNCPUs) = %d, want %d", len(got), n)
+	}
+	if got[0] != "1" {
+		t.Errorf("first element = %q, want 1", got[0])
 	}
 }
 

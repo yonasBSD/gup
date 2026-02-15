@@ -1083,3 +1083,79 @@ func TestPackage_VersionCheckResultStr_go_not_up_to_date_color(t *testing.T) {
 		t.Errorf("got: %v, want: %v", got, wantContain)
 	}
 }
+
+func TestPackage_CurrentToLatestStr_go_not_up_to_date(t *testing.T) {
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		Version: &Version{
+			Current: "v1.9.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.22.1",
+			Latest:  "go1.22.4",
+		},
+	}
+
+	got := pkgInfo.CurrentToLatestStr()
+	if !strings.Contains(got, "go1.22.1") || !strings.Contains(got, "go1.22.4") {
+		t.Errorf("expected go version range, got: %v", got)
+	}
+}
+
+func TestPackage_CurrentToLatestStr_both_not_up_to_date(t *testing.T) {
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		Version: &Version{
+			Current: "v0.0.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.22.1",
+			Latest:  "go1.22.4",
+		},
+	}
+
+	got := pkgInfo.CurrentToLatestStr()
+	if !strings.Contains(got, "v0.0.1") || !strings.Contains(got, "v1.9.1") {
+		t.Errorf("expected package version range, got: %v", got)
+	}
+	if !strings.Contains(got, "go1.22.1") || !strings.Contains(got, "go1.22.4") {
+		t.Errorf("expected go version range, got: %v", got)
+	}
+}
+
+func TestInstallMainOrMaster_mainFails_masterFails(t *testing.T) {
+	oldGoExe := goExe
+	defer func() { goExe = oldGoExe }()
+
+	// Use a command that will fail for both main and master
+	goExe = "false"
+
+	err := InstallMainOrMaster("github.com/example/tool")
+	if err == nil {
+		t.Fatal("expected error when both main and master fail")
+	}
+	if !strings.Contains(err.Error(), "cannot update with @master or @main") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestVersionUpToDate_invalidVersion(t *testing.T) {
+	// invalid versions should return false
+	if versionUpToDate("not-a-version", "1.0.0") {
+		t.Error("invalid current version should return false")
+	}
+	if versionUpToDate("1.0.0", "not-a-version") {
+		t.Error("invalid available version should return false")
+	}
+}
+
+func TestGetPackageInformation_emptyList(t *testing.T) {
+	result := GetPackageInformation([]string{})
+	if result != nil {
+		t.Errorf("expected nil for empty list, got %v", result)
+	}
+}
