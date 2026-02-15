@@ -176,15 +176,36 @@ func gup(cmd *cobra.Command, args []string) int {
 }
 
 func excludePkgs(excludePkgList []string, pkgs []goutil.Package) []goutil.Package {
+	excluded := make(map[string]struct{}, len(excludePkgList))
+	for _, name := range excludePkgList {
+		normalized := normalizeBinaryNameForMatch(name)
+		if normalized == "" {
+			continue
+		}
+		excluded[normalized] = struct{}{}
+	}
+
 	packageList := []goutil.Package{}
 	for _, v := range pkgs {
-		if slices.Contains(excludePkgList, v.Name) {
+		if _, ok := excluded[normalizeBinaryNameForMatch(v.Name)]; ok {
 			print.Info(fmt.Sprintf("Exclude '%s' from the update target", v.Name))
 			continue
 		}
 		packageList = append(packageList, v)
 	}
 	return packageList
+}
+
+func normalizeBinaryNameForMatch(name string) string {
+	name = strings.TrimSpace(name)
+	if runtime.GOOS != goosWindows {
+		return name
+	}
+	name = strings.ToLower(name)
+	if strings.HasSuffix(name, ".exe") {
+		return strings.TrimSuffix(name, ".exe")
+	}
+	return name
 }
 
 type updateResult struct {

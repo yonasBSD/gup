@@ -425,6 +425,28 @@ func Test_excludeUserSpecifiedPkg(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "exclude package names are trimmed",
+			args: args{
+				pkgs: []goutil.Package{
+					{
+						Name: "pkg1",
+					},
+					{
+						Name: "pkg2",
+					},
+					{
+						Name: "pkg3",
+					},
+				},
+				excludePkgList: []string{" pkg1", "pkg3 "},
+			},
+			want: []goutil.Package{
+				{
+					Name: "pkg2",
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
