@@ -190,5 +190,8 @@ func versionFromConfig(pkg goutil.Package) (string, error) {
 	if ver == "" {
 		return "", errors.New("version is empty in gup.conf")
 	}
+	if ver == "(devel)" || ver == "devel" {
+		return "latest", nil
+	}
 	return ver, nil
 }

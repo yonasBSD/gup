@@ -117,8 +117,8 @@ func WriteConfFile(file io.Writer, pkgs []goutil.Package) error {
 	var builder strings.Builder
 	for _, v := range pkgs {
 		version := "latest"
-		if v.Version != nil && strings.TrimSpace(v.Version.Current) != "" {
-			version = strings.TrimSpace(v.Version.Current)
+		if v.Version != nil {
+			version = normalizeConfVersion(v.Version.Current)
 		}
 		builder.WriteString(fmt.Sprintf("%s = %s@%s\n", v.Name, v.ImportPath, version))
 	}
@@ -139,6 +139,14 @@ func isBlank(line string) bool {
 func deleteComment(line string) string {
 	line, _, _ = strings.Cut(line, "#")
 	return line
+}
+
+func normalizeConfVersion(version string) string {
+	version = strings.TrimSpace(version)
+	if version == "" || version == "(devel)" || version == "devel" {
+		return "latest"
+	}
+	return version
 }
 
 // readFileToList convert file content to string list.

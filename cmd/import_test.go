@@ -216,3 +216,50 @@ func Test_installFromConfig_UseVersion(t *testing.T) {
 		t.Fatalf("install version = %s, want %s", gotVersion, "v1.0.0")
 	}
 }
+
+func Test_versionFromConfig_NormalizeDevel(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		pkg  goutil.Package
+		want string
+	}{
+		{
+			name: "devel with parentheses",
+			pkg: goutil.Package{
+				Version: &goutil.Version{Current: "(devel)"},
+			},
+			want: "latest",
+		},
+		{
+			name: "devel without parentheses",
+			pkg: goutil.Package{
+				Version: &goutil.Version{Current: "devel"},
+			},
+			want: "latest",
+		},
+		{
+			name: "regular version",
+			pkg: goutil.Package{
+				Version: &goutil.Version{Current: "v1.2.3"},
+			},
+			want: "v1.2.3",
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := versionFromConfig(tt.pkg)
+			if err != nil {
+				t.Fatalf("versionFromConfig() error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("versionFromConfig() = %s, want %s", got, tt.want)
+			}
+		})
+	}
+}

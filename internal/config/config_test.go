@@ -61,13 +61,18 @@ func TestWriteConfFile(t *testing.T) {
 			Name:       "bar",
 			ImportPath: "example.com/bar",
 		},
+		{
+			Name:       "baz",
+			ImportPath: "example.com/baz",
+			Version:    &goutil.Version{Current: "(devel)"},
+		},
 	}
 
 	if err := WriteConfFile(&buf, pkgs); err != nil {
 		t.Fatalf("WriteConfFile() error = %v", err)
 	}
 
-	want := "foo = example.com/foo@v1.2.3\nbar = example.com/bar@latest\n"
+	want := "foo = example.com/foo@v1.2.3\nbar = example.com/bar@latest\nbaz = example.com/baz@latest\n"
 	if got := buf.String(); got != want {
 		t.Fatalf("WriteConfFile() output = %q, want %q", got, want)
 	}
