@@ -19,6 +19,11 @@
 
 If you are using oh-my-zsh, then gup has an alias set up. The alias is `gup - git pull --rebase`. Therefore, please make sure that the oh-my-zsh alias is disabled (e.g. $ \gup update).
 
+## Breaking change (v1.0.0)
+- The config file format changed from `gup.conf` to `gup.json`.
+- `gup.conf` is no longer read by `gup import`.
+- The update channel (`latest` / `main` / `master`) is stored per package in `gup.json`.
+
 
 ## Supported OS (unit testing with GitHub Actions)
 - Linux

@@ -19,6 +19,11 @@ El comando **gup** actualiza los binarios instalados por "go install" a la versi
 
 Si estás usando oh-my-zsh, entonces gup tiene un alias configurado. El alias es `gup - git pull --rebase`. Por lo tanto, asegúrate de que el alias de oh-my-zsh esté deshabilitado (e.g. $ \gup update).
 
+## Cambio incompatible (v1.0.0)
+- El formato de configuración cambió de `gup.conf` a `gup.json`.
+- `gup import` ya no lee `gup.conf`.
+- El canal de actualización por paquete (`latest` / `main` / `master`) se guarda en `gup.json`.
+
 
 ## OS Soportados (pruebas unitarias con GitHub Actions)
 - Linux
@@ -80,10 +85,15 @@ También funciona en combinación con --dry-run
 $ gup update --exclude=gopls,golangci-lint    //--exclude o -e, este ejemplo excluirá 'gopls' y 'golangci-lint'
 ```
 
-### Actualizar binarios con @main o @master
-Si quieres actualizar binarios con @master o @main, puedes especificar la opción -m o --master.
+### Actualizar binarios con @main, @master o @latest
+Si quieres controlar la fuente de actualización por binario, usa estas opciones:
+- `--main` (`-m`): actualiza con `@main` (si falla, usa `@master`)
+- `--master`: actualiza con `@master`
+- `--latest`: actualiza con `@latest`
+
+El canal seleccionado se guarda en `gup.json` y se reutiliza en futuros `gup update`.
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### Listar el nombre del comando con ruta del paquete y versión bajo $GOPATH/bin
@@ -133,27 +143,54 @@ If you want to update binaries, the following command.
            $ gup update mimixbox
 ```
 ### Subcomando Export／Import
-Usas el subcomando export／import si quieres instalar los mismos binarios de golang en múltiples sistemas. Por defecto, el subcomando export exporta el archivo a $XDG_CONFIG_HOME/gup/gup.conf. Si quieres conocer [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html), ve este enlace. Después de haber colocado gup.conf en la misma jerarquía de rutas en otro sistema, ejecutas el subcomando import. gup iniciará la instalación
-según el contenido de gup.conf.
+Usa export/import si quieres instalar los mismos binarios de golang en múltiples sistemas.
+`gup.json` guarda el import path, la versión del binario y el canal de actualización (`latest` / `main` / `master`).
+`import` instala exactamente la versión escrita en el archivo.
+
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
+```
+
+Por defecto:
+- `gup export` escribe en `$XDG_CONFIG_HOME/gup/gup.json`
+- `gup import` detecta automáticamente la ruta en este orden:
+  1) `$XDG_CONFIG_HOME/gup/gup.json` (si existe)
+  2) `./gup.json` (si existe)
+
+Puedes sobrescribir la ruta con `--file`.
 
 ```shell
 ※ Entorno A (e.g. ubuntu)
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ Entorno B (e.g. debian)
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-Alternativamente, el subcomando export imprime información del paquete (es lo mismo que gup.conf) que quieres exportar en STDOUT si usas la opción --output. El subcomando import también puede especificar la ruta del archivo gup.conf si usas la opción --file.
+Alternativamente, `export` puede imprimir el contenido de `gup.json` en STDOUT con `--output`. `import` puede leer un archivo específico con `--file`.
 ```shell
 ※ Entorno A (e.g. ubuntu)
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ Entorno B (e.g. debian)
-$ gup import --file=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### Generar páginas de manual (para linux, mac)

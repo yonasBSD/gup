@@ -19,6 +19,11 @@
 
 oh-my-zshを使用している場合、gupにはエイリアスが設定されています。そのエイリアスは `gup - git pull --rebase` です。そのため、oh-my-zshのエイリアスを無効にして使用してください（例：$ \gup update）。
 
+## 破壊的変更（v1.0.0）
+- 設定ファイル形式は `gup.conf` から `gup.json` に変更されました。
+- `gup import` は `gup.conf` を読み込みません。
+- `gup.json` にはパッケージごとの更新チャネル（`latest` / `main` / `master`）を保存します。
+
 
 ## サポート対象OS（GitHub Actionsでユニットテスト実施）
 - Linux
@@ -80,10 +85,15 @@ update binary under $GOPATH/bin or $GOBIN
 $ gup update --exclude=gopls,golangci-lint    //--exclude または -e、この例では 'gopls' と 'golangci-lint' を除外します
 ```
 
-### @mainまたは@masterでバイナリを更新
-@masterや@mainでバイナリを更新したい場合は、-mまたは--masterオプションを指定できます。
+### @main、@master、@latestでバイナリを更新
+バイナリごとに更新元を指定したい場合、以下のオプションを使用します。
+- `--main` (`-m`): `@main` で更新（失敗時は `@master` を試行）
+- `--master`: `@master` で更新
+- `--latest`: `@latest` で更新
+
+選択したチャネルは `gup.json` に保存され、次回以降の `gup update` でも再利用されます。
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### $GOPATH/bin配下のコマンド名とパッケージパス、バージョンを一覧表示
@@ -134,37 +144,52 @@ If you want to update binaries, the following command.
 ```
 ### Export／Importサブコマンド
 複数のシステム間で同じGolangバイナリをインストールしたい場合は、export／importサブコマンドを使用します。
-`gup.conf` は import path とバイナリバージョンを保存し、`import` はそのバージョンをそのままインストールします。
+`gup.json` は import path、バイナリバージョン、更新チャネル（`latest` / `main` / `master`）を保存し、`import` はそのバージョンをそのままインストールします。
 
-```text
-gal = github.com/nao1215/gal/cmd/gal@v1.1.1
-posixer = github.com/nao1215/posixer@v0.1.0
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
 ```
 
 デフォルトでは次の挙動です。
-- `gup export` は `$XDG_CONFIG_HOME/gup/gup.conf` に書き出します。
+- `gup export` は `$XDG_CONFIG_HOME/gup/gup.json` に書き出します。
 - `gup import` は設定ファイルを次の順で自動検出します。
-  1) `$XDG_CONFIG_HOME/gup/gup.conf`（存在する場合）
-  2) `./gup.conf`（存在する場合）
+  1) `$XDG_CONFIG_HOME/gup/gup.json`（存在する場合）
+  2) `./gup.json`（存在する場合）
 
 `--file` を使えば、読み書きする設定ファイルパスを明示指定できます。
 
 ```shell
 ※ 環境A (例: ubuntu)
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ 環境B (例: debian)
 $ gup import
 ```
 
-また、exportサブコマンドは `--output` オプションを使用すると、`gup.conf` と同じ内容をSTDOUTに出力できます。importサブコマンドは `--file` オプションを使用して読み込みファイルを指定できます。
+また、exportサブコマンドは `--output` オプションを使用すると、`gup.json` と同じ内容をSTDOUTに出力できます。importサブコマンドは `--file` オプションを使用して読み込みファイルを指定できます。
 ```shell
 ※ 環境A (例: ubuntu)
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ 環境B (例: debian)
-$ gup import --file=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### manページの生成（LinuxとMac用）
