@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nao1215/gorky/file"
 	"github.com/nao1215/gup/internal/config"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
@@ -71,7 +71,7 @@ func export(cmd *cobra.Command, _ []string) int {
 }
 
 func writeConfigFile(pkgs []goutil.Package) error {
-	if err := os.MkdirAll(config.DirPath(), file.FileModeCreatingDir); err != nil {
+	if err := os.MkdirAll(config.DirPath(), fileutil.FileModeCreatingDir); err != nil {
 		return fmt.Errorf("%s: %w", "can not make config directory", err)
 	}
 

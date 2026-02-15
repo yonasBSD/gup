@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nao1215/gorky/file"
 	"github.com/nao1215/gup/internal/config"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/print"
 )
 
@@ -19,21 +19,21 @@ var warningIcon []byte
 
 // DeployIconIfNeeded make icon file for notification.
 func DeployIconIfNeeded() {
-	if !file.IsDir(assetsDirPath()) {
-		if err := os.MkdirAll(assetsDirPath(), file.FileModeCreatingDir); err != nil {
+	if !fileutil.IsDir(assetsDirPath()) {
+		if err := os.MkdirAll(assetsDirPath(), fileutil.FileModeCreatingDir); err != nil {
 			print.Err(fmt.Errorf("%s: %w", "can not make assets directory", err))
 			return
 		}
 	}
 
-	if !file.IsFile(InfoIconPath()) {
-		err := os.WriteFile(InfoIconPath(), inforIcon, file.FileModeCreatingFile)
+	if !fileutil.IsFile(InfoIconPath()) {
+		err := os.WriteFile(InfoIconPath(), inforIcon, fileutil.FileModeCreatingFile)
 		if err != nil {
 			print.Warn(err)
 		}
 	}
-	if !file.IsFile(WarningIconPath()) {
-		err := os.WriteFile(WarningIconPath(), warningIcon, file.FileModeCreatingFile)
+	if !fileutil.IsFile(WarningIconPath()) {
+		err := os.WriteFile(WarningIconPath(), warningIcon, fileutil.FileModeCreatingFile)
 		if err != nil {
 			print.Warn(err)
 		}

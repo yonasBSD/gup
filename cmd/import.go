@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/nao1215/gorky/file"
 	"github.com/nao1215/gup/internal/config"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
 )
@@ -67,7 +67,7 @@ func runImport(cmd *cobra.Command, _ []string) int {
 		return 1
 	}
 
-	if !file.IsFile(confFile) {
+	if !fileutil.IsFile(confFile) {
 		print.Err(fmt.Errorf("%s is not found", confFile))
 		return 1
 	}

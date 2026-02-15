@@ -14,9 +14,9 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/google/go-cmp/cmp"
-	"github.com/nao1215/gorky/file"
 	"github.com/nao1215/gup/internal/cmdinfo"
 	"github.com/nao1215/gup/internal/config"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
 )
@@ -125,7 +125,8 @@ func setupXDGBase(t *testing.T) {
 
 	base := t.TempDir()
 	t.Setenv("HOME", base)
-	t.Setenv("GOTELEMETRY", "off") // prevent Go toolchain telemetry files in temp home that break cleanup
+	t.Setenv("GOTELEMETRY", "off")          // prevent Go toolchain telemetry collection
+	t.Setenv("GOTELEMETRYDIR", t.TempDir()) // redirect telemetry dir outside base to avoid TempDir cleanup race on macOS
 	xdg.ConfigHome = filepath.Join(base, "config")
 	xdg.DataHome = filepath.Join(base, "data")
 	xdg.CacheHome = filepath.Join(base, "cache")
@@ -343,7 +344,7 @@ func TestExecute_Remove_Force(t *testing.T) {
 			}
 		})
 
-		if file.IsFile(dest) {
+		if fileutil.IsFile(dest) {
 			t.Errorf("failed to remove posixer command")
 		}
 	}
@@ -399,7 +400,7 @@ subaru = github.com/nao1215/subaru
 		}()
 
 		doBackup := false
-		if file.IsFile(config.FilePath()) {
+		if fileutil.IsFile(config.FilePath()) {
 			if err := os.Rename(config.FilePath(), config.FilePath()+".backup"); err != nil {
 				t.Fatal(err)
 			}
@@ -420,7 +421,7 @@ subaru = github.com/nao1215/subaru
 			}
 		})
 
-		if !file.IsFile(config.FilePath()) {
+		if !fileutil.IsFile(config.FilePath()) {
 			t.Error(config.FilePath() + " does not exist. failed to generate")
 			continue
 		}
@@ -693,33 +694,33 @@ func TestExecute_Completion(t *testing.T) {
 
 		bash := filepath.Join(os.Getenv("HOME"), ".local", "share", "bash-completion", "completions", cmdinfo.Name)
 		if runtime.GOOS == goosWindows {
-			if file.IsFile(bash) {
+			if fileutil.IsFile(bash) {
 				t.Errorf("generate %s, however shell completion file is not generated on Windows", bash)
 			}
 		} else {
-			if !file.IsFile(bash) {
+			if !fileutil.IsFile(bash) {
 				t.Errorf("failed to generate %s", bash)
 			}
 		}
 
 		fish := filepath.Join(os.Getenv("HOME"), ".config", "fish", "completions", cmdinfo.Name+".fish")
 		if runtime.GOOS == goosWindows {
-			if file.IsFile(fish) {
+			if fileutil.IsFile(fish) {
 				t.Errorf("generate %s, however shell completion file is not generated on Windows", fish)
 			}
 		} else {
-			if !file.IsFile(fish) {
+			if !fileutil.IsFile(fish) {
 				t.Errorf("failed to generate %s", fish)
 			}
 		}
 
 		zsh := filepath.Join(os.Getenv("HOME"), ".zsh", "completion", "_"+cmdinfo.Name)
 		if runtime.GOOS == goosWindows {
-			if file.IsFile(zsh) {
+			if fileutil.IsFile(zsh) {
 				t.Errorf("generate %s, however shell completion file is not generated on Windows", zsh)
 			}
 		} else {
-			if !file.IsFile(zsh) {
+			if !fileutil.IsFile(zsh) {
 				t.Errorf("failed to generate  %s", zsh)
 			}
 		}

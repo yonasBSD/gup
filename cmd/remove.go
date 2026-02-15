@@ -7,7 +7,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/nao1215/gorky/file"
+	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
@@ -69,7 +69,7 @@ func removeLoop(gobin string, force bool, target []string) int {
 		}
 
 		target := filepath.Join(gobin, v)
-		if !file.IsFile(target) {
+		if !fileutil.IsFile(target) {
 			print.Err(fmt.Errorf("no such file or directory: %s", target))
 			result = 1
 			continue
