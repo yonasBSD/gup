@@ -57,7 +57,7 @@ func ReadConfFile(path string) ([]goutil.Package, error) {
 		}
 
 		equalIdx := strings.Index(v, "=")
-		pkg.Name = strings.TrimSpace(v[:equalIdx-1])
+		pkg.Name = strings.TrimSpace(v[:equalIdx])
 		pkg.ImportPath = strings.TrimSpace(v[equalIdx+1:])
 		pkg.Version = pointer.Ptr(binVer)
 		pkg.GoVersion = pointer.Ptr(goVer)
@@ -89,7 +89,7 @@ func isBlank(line string) bool {
 }
 
 func deleteComment(line string) string {
-	r := regexp.MustCompile(`#./*`)
+	r := regexp.MustCompile(`#.*`)
 	return r.ReplaceAllString(line, "")
 }
 

@@ -10,14 +10,12 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/notify"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
 	"golang.org/x/exp/slices"
-	"golang.org/x/sync/semaphore"
 )
 
 var (
@@ -68,27 +66,30 @@ func gup(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 
-	dryRun, err := cmd.Flags().GetBool("dry-run")
+	dryRun, err := getFlagBool(cmd, "dry-run")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--dry-run)", err))
+		print.Err(err)
 		return 1
 	}
 
-	notify, err := cmd.Flags().GetBool("notify")
+	notify, err := getFlagBool(cmd, "notify")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--notify)", err))
+		print.Err(err)
 		return 1
 	}
 
-	cpus, err := cmd.Flags().GetInt("jobs")
+	cpus, err := getFlagInt(cmd, "jobs")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--jobs)", err))
+		print.Err(err)
 		return 1
 	}
+	if cpus < 1 {
+		cpus = 1
+	}
 
-	ignoreGoUpdate, err := cmd.Flags().GetBool("ignore-go-update")
+	ignoreGoUpdate, err := getFlagBool(cmd, "ignore-go-update")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--ignore-go-update)", err))
+		print.Err(err)
 		return 1
 	}
 
@@ -98,15 +99,15 @@ func gup(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 
-	excludePkgList, err := cmd.Flags().GetStringSlice("exclude")
+	excludePkgList, err := getFlagStringSlice(cmd, "exclude")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--exclude)", err))
+		print.Err(err)
 		return 1
 	}
 
-	mainPkgNames, err := cmd.Flags().GetStringSlice("main")
+	mainPkgNames, err := getFlagStringSlice(cmd, "main")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--main)", err))
+		print.Err(err)
 		return 1
 	}
 
@@ -159,18 +160,7 @@ func update(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGo
 		go catchSignal(signals, dryRunManager)
 	}
 
-	ch := make(chan updateResult)
-	weighted := semaphore.NewWeighted(int64(cpus))
-	updater := func(ctx context.Context, p goutil.Package) updateResult {
-		if err := weighted.Acquire(ctx, 1); err != nil {
-			return updateResult{
-				updated: false,
-				pkg:     p,
-				err:     err,
-			}
-		}
-		defer weighted.Release(1)
-
+	updater := func(_ context.Context, p goutil.Package) updateResult {
 		// Collect online latest version if possible; else always update
 		shouldUpdate := true
 		if p.ModulePath != "" {
@@ -221,14 +211,7 @@ func update(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGo
 	}
 
 	// update all packages
-	ctx := context.Background()
-	for _, v := range pkgs {
-		// Run update
-		go func(v goutil.Package) {
-			res := updater(ctx, v)
-			ch <- res
-		}(v)
-	}
+	ch := forEachPackage(context.Background(), pkgs, cpus, updater)
 
 	// print result
 	count := 0
@@ -238,7 +221,7 @@ func update(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGo
 				count+1, len(pkgs), v.pkg.ImportPath, v.pkg.CurrentToLatestStr()))
 		} else {
 			result = 1
-			print.Err(fmt.Errorf(countFmt+"%s", count+1, len(pkgs), v.err.Error()))
+			print.Err(fmt.Errorf(countFmt+" %s", count+1, len(pkgs), v.err.Error()))
 		}
 		count++
 		if count == len(pkgs) {
@@ -270,15 +253,9 @@ func desktopNotifyIfNeeded(result int, enable bool) {
 }
 
 func catchSignal(c chan os.Signal, dryRunManager *goutil.GoPaths) {
-	for {
-		select {
-		case <-c:
-			if err := dryRunManager.EndDryRunMode(); err != nil {
-				print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
-			}
-			return
-		default:
-			time.Sleep(1 * time.Second)
+	if _, ok := <-c; ok {
+		if err := dryRunManager.EndDryRunMode(); err != nil {
+			print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
 		}
 	}
 }

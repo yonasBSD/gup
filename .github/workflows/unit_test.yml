@@ -31,6 +31,7 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
 
-      - name: Run tests with coverage report output
-        run: go test -cover -coverpkg=./... -coverprofile=coverage.out ./...
+      - name: Run tests with race detector (Linux only)
+        if: matrix.os == 'ubuntu-latest'
+        run: go test -race ./...
 

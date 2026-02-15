@@ -47,19 +47,20 @@ func makeBashCompletionFileIfNeeded(cmd *cobra.Command) {
 			return
 		}
 	}
-	fp, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE, fileutil.FileModeCreatingFile)
+	fp, err := os.OpenFile(filepath.Clean(path), os.O_RDWR|os.O_CREATE|os.O_TRUNC, fileutil.FileModeCreatingFile)
 	if err != nil {
 		print.Err(fmt.Errorf("can not open .bash_completion: %w", err))
 		return
 	}
+	defer func() {
+		if closeErr := fp.Close(); closeErr != nil {
+			print.Err(fmt.Errorf("can not close .bash_completion: %w", closeErr))
+		}
+	}()
 
 	if _, err := fp.WriteString(bashCompletion.String()); err != nil {
-		print.Err(fmt.Errorf("can not write .bash_completion %w", err))
+		print.Err(fmt.Errorf("can not write .bash_completion: %w", err))
 		return
-	}
-
-	if err := fp.Close(); err != nil {
-		print.Err(fmt.Errorf("can not close .bash_completion %w", err))
 	}
 }
 
@@ -111,15 +112,14 @@ autoload -Uz compinit && compinit -i
 			print.Err(fmt.Errorf("can not open .zshrc: %w", err).Error())
 			return
 		}
+		defer func() {
+			if closeErr := fp.Close(); closeErr != nil {
+				print.Err(fmt.Errorf("can not close .zshrc: %w", closeErr).Error())
+			}
+		}()
 
 		if _, err := fp.WriteString(zshFpath); err != nil {
 			print.Err(fmt.Errorf("can not write zsh $fpath in .zshrc: %w", err).Error())
-			return
-		}
-
-		if err := fp.Close(); err != nil {
-			print.Err(fmt.Errorf("can not close .zshrc: %w", err).Error())
-			return
 		}
 		return
 	}
@@ -139,15 +139,14 @@ autoload -Uz compinit && compinit -i
 		print.Err(fmt.Errorf("can not open .zshrc: %w", err).Error())
 		return
 	}
+	defer func() {
+		if closeErr := fp.Close(); closeErr != nil {
+			print.Err(fmt.Errorf("can not close .zshrc: %w", closeErr).Error())
+		}
+	}()
 
 	if _, err := fp.WriteString(zshFpath); err != nil {
 		print.Err(fmt.Errorf("can not write zsh $fpath in .zshrc: %w", err).Error())
-		return
-	}
-
-	if err := fp.Close(); err != nil {
-		print.Err(fmt.Errorf("can not close .zshrc: %w", err).Error())
-		return
 	}
 }
 

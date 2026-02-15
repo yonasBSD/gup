@@ -40,9 +40,9 @@ func export(cmd *cobra.Command, _ []string) int {
 		return 1
 	}
 
-	output, err := cmd.Flags().GetBool("output")
+	output, err := getFlagBool(cmd, "output")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--output)", err))
+		print.Err(err)
 		return 1
 	}
 
@@ -102,7 +102,7 @@ func validPkgInfo(pkgs []goutil.Package) []goutil.Package {
 	result := []goutil.Package{}
 	for _, v := range pkgs {
 		if v.ImportPath == "" {
-			print.Warn("can't get '" + v.Name + "'package path information. old go version binary")
+			print.Warn("can't get '" + v.Name + "' package path information. old go version binary")
 			continue
 		}
 		result = append(result, goutil.Package{Name: v.Name, ImportPath: v.ImportPath, Version: v.Version})
