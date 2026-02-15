@@ -741,8 +741,9 @@ func Test_update_modulePathChangedOnGetLatest(t *testing.T) {
 		},
 	}
 
-	if got := update(pkgs, false, false, 1, true, nil); got != 0 {
-		t.Fatalf("update() = %d, want 0", got)
+	channelMap := map[string]goutil.UpdateChannel{"air": goutil.UpdateChannelLatest}
+	if got, _ := updateWithChannels(pkgs, false, false, 1, true, channelMap); got != 0 {
+		t.Fatalf("updateWithChannels() = %d, want 0", got)
 	}
 	if diff := cmp.Diff([]string{oldModule, newModule}, latestCalls); diff != "" {
 		t.Errorf("latest module path calls mismatch (-want +got):\n%s", diff)
@@ -809,8 +810,9 @@ func Test_update_modulePathChangedOnInstall(t *testing.T) {
 		},
 	}
 
-	if got := update(pkgs, false, false, 1, true, nil); got != 0 {
-		t.Fatalf("update() = %d, want 0", got)
+	channelMap := map[string]goutil.UpdateChannel{"air": goutil.UpdateChannelLatest}
+	if got, _ := updateWithChannels(pkgs, false, false, 1, true, channelMap); got != 0 {
+		t.Fatalf("updateWithChannels() = %d, want 0", got)
 	}
 	if diff := cmp.Diff([]string{oldImport, newImport}, installCalls); diff != "" {
 		t.Errorf("install import path calls mismatch (-want +got):\n%s", diff)

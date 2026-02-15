@@ -214,22 +214,6 @@ type updateResult struct {
 	err     error
 }
 
-// update updates all packages.
-// If dryRun is true, it does not update.
-// If notification is true, it notifies the result of update.
-func update(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGoUpdate bool, mainPkgNames []string) int {
-	channelMap := make(map[string]goutil.UpdateChannel, len(pkgs))
-	for _, p := range pkgs {
-		channelMap[p.Name] = goutil.UpdateChannelLatest
-	}
-	for _, name := range mainPkgNames {
-		channelMap[strings.TrimSpace(name)] = goutil.UpdateChannelMain
-	}
-
-	result, _ := updateWithChannels(pkgs, dryRun, notification, cpus, ignoreGoUpdate, channelMap)
-	return result
-}
-
 func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGoUpdate bool, channelMap map[string]goutil.UpdateChannel) (int, []goutil.Package) {
 	result := 0
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
