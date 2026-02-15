@@ -41,7 +41,7 @@ func makeBashCompletionFileIfNeeded(cmd *cobra.Command) {
 		return
 	}
 
-	if !fileutil.IsDir(path) {
+	if !fileutil.IsDir(filepath.Dir(path)) {
 		if err := os.MkdirAll(filepath.Dir(path), fileutil.FileModeCreatingDir); err != nil {
 			print.Err(fmt.Errorf("can not create bash-completion file: %w", err))
 			return

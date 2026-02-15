@@ -83,6 +83,7 @@ func removeLoop(gobin string, force bool, target []string) int {
 
 		if err := os.Remove(target); err != nil {
 			print.Err(err)
+			result = 1
 			continue
 		}
 		print.Info("removed " + target)

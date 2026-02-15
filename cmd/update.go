@@ -234,7 +234,8 @@ func update(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGo
 			print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
 			return 1
 		}
-		close(signals)
+		signal.Stop(signals) // stop signal delivery before closing the channel
+		close(signals)       // unblock catchSignal goroutine
 	}
 
 	desktopNotifyIfNeeded(result, notification)

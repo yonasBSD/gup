@@ -28,13 +28,6 @@ jobs:
       - name: Run tests with coverage report output
         run: go test -cover -coverpkg=./... -coverprofile=cover.out ./...
 
-      - name: Debug coverage input
-        run: |
-          pwd
-          ls -l cover.out
-          go tool cover -func=cover.out | tail -1
-          cat .octocov.yml
-
       - uses: k1LoW/octocov-action@v1
         with:
           config: .octocov.yml
