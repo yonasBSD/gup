@@ -42,7 +42,7 @@ Steps to reproduce the bug.
 Expected behavior.
 
 `
-		additionalDetails = `## Additional details**
+		additionalDetails = `## Additional details
 Any other useful data to share.
 `
 	)

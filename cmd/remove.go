@@ -38,9 +38,9 @@ func remove(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 
-	force, err := cmd.Flags().GetBool("force")
+	force, err := getFlagBool(cmd, "force")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--force)", err))
+		print.Err(err)
 		return 1
 	}
 

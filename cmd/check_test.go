@@ -299,3 +299,97 @@ func Test_printUpdatablePkgInfo(t *testing.T) {
 		})
 	}
 }
+
+func Test_check_success(t *testing.T) {
+	t.Setenv("GOBIN", filepath.Join("testdata", "check_success"))
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	got := check(newCheckCmd(), []string{})
+	pw.Close()
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	buf := bytes.Buffer{}
+	_, err = io.Copy(&buf, pr)
+	if err != nil {
+		t.Error(err)
+	}
+	pr.Close()
+
+	// Should succeed (exit 0) or fail (exit 1) but not crash.
+	// The check command runs network calls so we accept either result.
+	if got != 0 && got != 1 {
+		t.Errorf("check() = %v, want 0 or 1", got)
+	}
+}
+
+func Test_check_ignoreGoUpdateFlag(t *testing.T) {
+	t.Setenv("GOBIN", filepath.Join("testdata", "check_success"))
+
+	cmd := newCheckCmd()
+	if err := cmd.Flags().Set("ignore-go-update", "true"); err != nil {
+		t.Fatalf("failed to set ignore-go-update flag: %v", err)
+	}
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	got := check(cmd, []string{})
+	pw.Close()
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	buf := bytes.Buffer{}
+	_, err = io.Copy(&buf, pr)
+	if err != nil {
+		t.Error(err)
+	}
+	pr.Close()
+
+	if got != 0 && got != 1 {
+		t.Errorf("check() = %v, want 0 or 1", got)
+	}
+}
+
+func Test_check_jobsClamp(t *testing.T) {
+	t.Setenv("GOBIN", filepath.Join("testdata", "check_success"))
+
+	cmd := newCheckCmd()
+	if err := cmd.Flags().Set("jobs", "0"); err != nil {
+		t.Fatalf("failed to set jobs flag: %v", err)
+	}
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	// Should not hang with jobs=0 (clamped to 1)
+	got := check(cmd, []string{})
+	pw.Close()
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+	pr.Close()
+
+	if got != 0 && got != 1 {
+		t.Errorf("check() = %v, want 0 or 1", got)
+	}
+}

@@ -1,4 +1,4 @@
-//nolint:paralleltest,errcheck
+//nolint:paralleltest,errcheck,gosec
 package cmd
 
 import (
@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -15,6 +16,8 @@ import (
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
 )
+
+const testVersionZero = "v0.0.0"
 
 func Test_gup(t *testing.T) {
 	type args struct {
@@ -188,7 +191,7 @@ func Test_gup_ignoreGoUpdateFlag(t *testing.T) {
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
-	getLatestVer = func(string) (string, error) { return "v0.0.0", nil }
+	getLatestVer = func(string) (string, error) { return testVersionZero, nil }
 	installLatest = func(string) error { return nil }
 	installMainOrMaster = func(string) error { return nil }
 	defer func() {
@@ -242,17 +245,17 @@ func Test_gup_dryRun(t *testing.T) {
 		t.Fatalf("failed to set dry-run flag: %v", err)
 	}
 
-	var installCalled bool
+	var installCalled atomic.Bool
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
 	getLatestVer = func(string) (string, error) { return "v9.9.9", nil }
 	installLatest = func(string) error {
-		installCalled = true
+		installCalled.Store(true)
 		return nil
 	}
 	installMainOrMaster = func(string) error {
-		installCalled = true
+		installCalled.Store(true)
 		return nil
 	}
 	defer func() {
@@ -269,7 +272,7 @@ func Test_gup_dryRun(t *testing.T) {
 	if got := gup(cmd, []string{}); got != 0 {
 		t.Fatalf("gup() = %v, want %v", got, 0)
 	}
-	if !installCalled {
+	if !installCalled.Load() {
 		t.Fatalf("expected installer to be invoked in dry-run mode")
 	}
 	if gobin := os.Getenv("GOBIN"); !strings.Contains(gobin, "check_success") {
@@ -462,5 +465,50 @@ func TestExtractUserSpecifyPkg(t *testing.T) {
 
 	if diff := cmp.Diff(actual, expected); diff != "" {
 		t.Errorf("value is mismatch (-actual +expected):\n%s", diff)
+	}
+}
+
+func Test_gup_jobsClamp(t *testing.T) {
+	t.Setenv("GOBIN", filepath.Join("testdata", "check_success"))
+
+	cmd := newUpdateCmd()
+	if err := cmd.Flags().Set("jobs", "-1"); err != nil {
+		t.Fatalf("failed to set jobs flag: %v", err)
+	}
+
+	origGetLatest := getLatestVer
+	origInstallLatest := installLatest
+	origInstallMain := installMainOrMaster
+	getLatestVer = func(string) (string, error) { return testVersionZero, nil }
+	installLatest = func(string) error { return nil }
+	installMainOrMaster = func(string) error { return nil }
+	defer func() {
+		getLatestVer = origGetLatest
+		installLatest = origInstallLatest
+		installMainOrMaster = origInstallMain
+	}()
+
+	OsExit = func(code int) {}
+	defer func() {
+		OsExit = os.Exit
+	}()
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	_, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	// Should not hang with jobs=-1 (clamped to 1)
+	got := gup(cmd, []string{})
+	pw.Close()
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	if got != 0 {
+		t.Errorf("gup() = %v, want 0", got)
 	}
 }

@@ -113,6 +113,18 @@ func setupXDGBase(t *testing.T) {
 	origData := xdg.DataHome
 	origCache := xdg.CacheHome
 
+	// Use os.MkdirTemp instead of t.TempDir() to avoid flaky
+	// "directory not empty" failures on macOS caused by Spotlight
+	// indexing race conditions during t.TempDir() cleanup.
+	base, err := os.MkdirTemp("", "gup-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	telemetryDir, err := os.MkdirTemp("", "gup-test-telemetry-*")
+	if err != nil {
+		t.Fatalf("failed to create telemetry temp dir: %v", err)
+	}
+
 	t.Cleanup(func() {
 		_ = os.Unsetenv("HOME")
 		if origHome != "" {
@@ -121,12 +133,13 @@ func setupXDGBase(t *testing.T) {
 		xdg.ConfigHome = origConfig
 		xdg.DataHome = origData
 		xdg.CacheHome = origCache
+		_ = os.RemoveAll(base)
+		_ = os.RemoveAll(telemetryDir)
 	})
 
-	base := t.TempDir()
 	t.Setenv("HOME", base)
-	t.Setenv("GOTELEMETRY", "off")          // prevent Go toolchain telemetry collection
-	t.Setenv("GOTELEMETRYDIR", t.TempDir()) // redirect telemetry dir outside base to avoid TempDir cleanup race on macOS
+	t.Setenv("GOTELEMETRY", "off")
+	t.Setenv("GOTELEMETRYDIR", telemetryDir)
 	xdg.ConfigHome = filepath.Join(base, "config")
 	xdg.DataHome = filepath.Join(base, "data")
 	xdg.CacheHome = filepath.Join(base, "cache")

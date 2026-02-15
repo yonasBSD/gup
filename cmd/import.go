@@ -43,28 +43,31 @@ Finally, you execute the export subcommand in this state.`,
 }
 
 func runImport(cmd *cobra.Command, _ []string) int {
-	dryRun, err := cmd.Flags().GetBool("dry-run")
+	dryRun, err := getFlagBool(cmd, "dry-run")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--dry-run)", err))
+		print.Err(err)
 		return 1
 	}
 
-	confFile, err := cmd.Flags().GetString("input")
+	confFile, err := getFlagString(cmd, "input")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--input)", err))
+		print.Err(err)
 		return 1
 	}
 
-	notify, err := cmd.Flags().GetBool("notify")
+	notify, err := getFlagBool(cmd, "notify")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--notify)", err))
+		print.Err(err)
 		return 1
 	}
 
-	cpus, err := cmd.Flags().GetInt("jobs")
+	cpus, err := getFlagInt(cmd, "jobs")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--jobs)", err))
+		print.Err(err)
 		return 1
+	}
+	if cpus < 1 {
+		cpus = 1
 	}
 
 	if !fileutil.IsFile(confFile) {

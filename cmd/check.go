@@ -10,7 +10,6 @@ import (
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/semaphore"
 )
 
 func newCheckCmd() *cobra.Command {
@@ -44,15 +43,18 @@ func check(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 
-	cpus, err := cmd.Flags().GetInt("jobs")
+	cpus, err := getFlagInt(cmd, "jobs")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--jobs)", err))
+		print.Err(err)
 		return 1
 	}
+	if cpus < 1 {
+		cpus = 1
+	}
 
-	ignoreGoUpdate, err := cmd.Flags().GetBool("ignore-go-update")
+	ignoreGoUpdate, err := getFlagBool(cmd, "ignore-go-update")
 	if err != nil {
-		print.Err(fmt.Errorf("%s: %w", "can not parse command line argument (--ignore-go-update)", err))
+		print.Err(err)
 		return 1
 	}
 
@@ -77,19 +79,8 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 	needUpdatePkgs := []goutil.Package{}
 
 	print.Info("check binary under $GOPATH/bin or $GOBIN")
-	ch := make(chan updateResult)
-	weighted := semaphore.NewWeighted(int64(cpus))
-	checker := func(ctx context.Context, p goutil.Package, result chan updateResult) {
-		if err := weighted.Acquire(ctx, 1); err != nil {
-			r := updateResult{
-				pkg: p,
-				err: err,
-			}
-			result <- r
-			return
-		}
-		defer weighted.Release(1)
 
+	checker := func(_ context.Context, p goutil.Package) updateResult {
 		var err error
 		if p.ModulePath == "" {
 			err = fmt.Errorf(" %s is not installed by 'go install' (or permission incorrect)", p.Name)
@@ -109,18 +100,13 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 			}
 		}
 
-		r := updateResult{
+		return updateResult{
 			pkg: p,
 			err: err,
 		}
-		result <- r
 	}
 
-	// check all package
-	ctx := context.Background()
-	for _, v := range pkgs {
-		go checker(ctx, v, ch)
-	}
+	ch := forEachPackage(context.Background(), pkgs, cpus, checker)
 
 	// print result
 	for i := 0; i < len(pkgs); i++ {

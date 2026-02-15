@@ -35,8 +35,7 @@ func withTempXDG(t *testing.T) func() {
 	}
 }
 
-func TestDirAndFilePath(t *testing.T) {
-	t.Parallel()
+func TestDirAndFilePath(t *testing.T) { //nolint:paralleltest // modifies xdg globals
 	cleanup := withTempXDG(t)
 	defer cleanup()
 
@@ -67,8 +66,7 @@ func TestWriteConfFile(t *testing.T) {
 	}
 }
 
-func TestReadConfFile(t *testing.T) {
-	t.Parallel()
+func TestReadConfFile(t *testing.T) { //nolint:paralleltest // modifies xdg globals
 	cleanup := withTempXDG(t)
 	defer cleanup()
 

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"compress/gzip"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -81,9 +82,7 @@ func generateManpages(dst string) error {
 	}
 	defer func() {
 		if removeErr := os.RemoveAll(tmpDir); removeErr != nil {
-			// TODO: If use go 1.20, rewrite like this.
-			// err = errors.Join(err, closeErr)
-			err = removeErr // overwrite error
+			err = errors.Join(err, removeErr)
 		}
 	}()
 
@@ -104,47 +103,43 @@ func copyManpages(manFiles []string, dst string) error {
 	dst = filepath.Clean(dst)
 
 	for _, file := range manFiles {
-		file = filepath.Clean(file)
-
-		in, err := os.Open(file)
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if closeErr := in.Close(); closeErr != nil {
-				// TODO: If use go 1.20, rewrite like this.
-				// err = errors.Join(err, closeErr)
-				err = closeErr // overwrite error
-			}
-		}()
-
-		out, err := os.Create(filepath.Clean(filepath.Join(dst, fmt.Sprintf("%s%s", filepath.Base(file), ".gz"))))
-		if err != nil {
-			return err
-		}
-		defer func() {
-			if closeErr := out.Close(); closeErr != nil {
-				// TODO: If use go 1.20, rewrite like this.
-				// err = errors.Join(err, closeErr)
-				err = closeErr // overwrite error
-			}
-		}()
-
-		gz := gzip.NewWriter(out)
-		gz.Name = strings.TrimSuffix(filepath.Base(file), ".1")
-		defer func() {
-			if closeErr := gz.Close(); closeErr != nil {
-				// TODO: If use go 1.20, rewrite like this.
-				// err = errors.Join(err, closeErr)
-				err = closeErr // overwrite error
-			}
-		}()
-
-		print.Info("Generate " + out.Name())
-		_, err = io.Copy(gz, in)
-		if err != nil {
+		if err := copyOneManpage(filepath.Clean(file), dst); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func copyOneManpage(file, dst string) (err error) {
+	in, err := os.Open(file) //nolint:gosec // file comes from filepath.Glob, already cleaned by caller
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := in.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
+
+	out, err := os.Create(filepath.Clean(filepath.Join(dst, filepath.Base(file)+".gz")))
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if closeErr := out.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
+
+	gz := gzip.NewWriter(out)
+	gz.Name = strings.TrimSuffix(filepath.Base(file), ".1")
+	defer func() {
+		if closeErr := gz.Close(); closeErr != nil {
+			err = errors.Join(err, closeErr)
+		}
+	}()
+
+	print.Info("Generate " + out.Name())
+	_, err = io.Copy(gz, in)
+	return err
 }
