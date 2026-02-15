@@ -1,3 +1,25 @@
+## [Unreleased]
+
+### ⚠ BREAKING CHANGES
+
+* import/export config format changed from `<name> = <import-path>` to `<name> = <import-path>@<version>`
+* `gup import` now installs the version written in `gup.conf`
+* `gup import` flag changed from `--input` to `--file`
+
+### Features
+
+* Add config path resolution for import (`./gup.conf` first, then `$XDG_CONFIG_HOME/gup/gup.conf`)
+* Add `--file` option to export
+
+### Fixes
+
+* Fix dry-run temporary directory lifecycle
+* Avoid real binary updates in root command tests by stubbing installers
+
+### Performance
+
+* Use a fixed worker-pool implementation for package processing
+
 ## [v0.28.3](https://github.com/nao1215/gup/compare/v0.28.2...v0.28.3) (2026-02-15)
 
 * Fix bug fixes and CI improvements [#230](https://github.com/nao1215/gup/pull/230) ([nao1215](https://github.com/nao1215))

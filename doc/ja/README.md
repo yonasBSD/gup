@@ -133,7 +133,21 @@ If you want to update binaries, the following command.
           $ gup update mimixbox
 ```
 ### Export／Importサブコマンド
-複数のシステム間で同じGolangバイナリをインストールしたい場合は、export／importサブコマンドを使用します。デフォルトで、exportサブコマンドは$XDG_CONFIG_HOME/gup/gup.confにファイルをエクスポートします。[XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)について知りたい場合は、このリンクを参照してください。別のシステムの同じパス階層にgup.confを配置した後、importサブコマンドを実行します。gupはgup.confの内容に従ってインストールを開始します。
+複数のシステム間で同じGolangバイナリをインストールしたい場合は、export／importサブコマンドを使用します。
+`gup.conf` は import path とバイナリバージョンを保存し、`import` はそのバージョンをそのままインストールします。
+
+```text
+gal = github.com/nao1215/gal/cmd/gal@v1.1.1
+posixer = github.com/nao1215/posixer@v0.1.0
+```
+
+デフォルトでは次の挙動です。
+- `gup export` は `$XDG_CONFIG_HOME/gup/gup.conf` に書き出します。
+- `gup import` は設定ファイルを次の順で自動検出します。
+  1) `./gup.conf`（存在する場合）
+  2) `$XDG_CONFIG_HOME/gup/gup.conf`
+
+`--file` を使えば、読み書きする設定ファイルパスを明示指定できます。
 
 ```shell
 ※ 環境A (例: ubuntu)
@@ -141,18 +155,16 @@ $ gup export
 Export /home/nao/.config/gup/gup.conf
 
 ※ 環境B (例: debian)
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-また、exportサブコマンドは--outputオプションを使用すると、エクスポートしたいパッケージ情報（gup.confと同じ内容）をSTDOUTに出力できます。importサブコマンドも--inputオプションを使用してgup.confファイルパスを指定できます。
+また、exportサブコマンドは `--output` オプションを使用すると、`gup.conf` と同じ内容をSTDOUTに出力できます。importサブコマンドは `--file` オプションを使用して読み込みファイルを指定できます。
 ```shell
 ※ 環境A (例: ubuntu)
 $ gup export --output > gup.conf
 
 ※ 環境B (例: debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.conf
 ```
 
 ### manページの生成（LinuxとMac用）

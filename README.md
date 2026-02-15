@@ -133,8 +133,21 @@ If you want to update binaries, the following command.
            $ gup update mimixbox
 ```
 ### Export／Import subcommand
-You use the export／import subcommand if you want to install the same golang binaries across multiple systems. By default, export-subcommand exports the file to $XDG_CONFIG_HOME/gup/gup.conf. If you want to know [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html), see this link. After you have placed gup.conf in the same path hierarchy on another system, you execute import-subcommand. gup start the installation
-according to the contents of gup.conf.
+Use export/import when you want to install the same Go binaries across multiple systems.
+`gup.conf` now stores both import path and binary version, and `import` installs that exact version.
+
+```text
+gal = github.com/nao1215/gal/cmd/gal@v1.1.1
+posixer = github.com/nao1215/posixer@v0.1.0
+```
+
+By default:
+- `gup export` writes to `$XDG_CONFIG_HOME/gup/gup.conf`
+- `gup import` auto-detects config path in this order:
+  1) `./gup.conf` (if exists)
+  2) `$XDG_CONFIG_HOME/gup/gup.conf`
+
+You can always override the path with `--file`.
 
 ```shell
 ※ Environments A (e.g. ubuntu)
@@ -142,18 +155,16 @@ $ gup export
 Export /home/nao/.config/gup/gup.conf
 
 ※ Environments B (e.g. debian)
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-Alternatively, export subcommand print package information (it's same as gup.conf) that you want to export at STDOUT if you use --output option. import subcommand can also specify the gup.conf file path if you use --input option.
+`export` can print config content to STDOUT by `--output`. `import` can read a specific file by `--file`.
 ```shell
 ※ Environments A (e.g. ubuntu)
 $ gup export --output > gup.conf
 
 ※ Environments B (e.g. debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.conf
 ```
 
 ### Generate man-pages (for linux, mac)
