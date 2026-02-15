@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -19,9 +20,10 @@ import (
 )
 
 var (
-	getLatestVer        = goutil.GetLatestVer        //nolint:gochecknoglobals // swapped in tests
-	installLatest       = goutil.InstallLatest       //nolint:gochecknoglobals // swapped in tests
-	installMainOrMaster = goutil.InstallMainOrMaster //nolint:gochecknoglobals // swapped in tests
+	getLatestVer        = goutil.GetLatestVer             //nolint:gochecknoglobals // swapped in tests
+	installLatest       = goutil.InstallLatest            //nolint:gochecknoglobals // swapped in tests
+	installMainOrMaster = goutil.InstallMainOrMaster      //nolint:gochecknoglobals // swapped in tests
+	detectModulePathErr = goutil.DetectModulePathMismatch //nolint:gochecknoglobals // swapped in tests
 )
 
 func newUpdateCmd() *cobra.Command {
@@ -163,19 +165,34 @@ func update(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGo
 	updater := func(_ context.Context, p goutil.Package) updateResult {
 		// Collect online latest version if possible; else always update
 		shouldUpdate := true
+		modulePathChanged := false
 		if p.ModulePath != "" {
 			ver, err := getLatestVer(p.ModulePath)
 			if err != nil {
-				return updateResult{
-					updated: false,
-					pkg:     p,
-					err:     fmt.Errorf("%s: %w", p.Name, err),
+				newPkg, changed := resolveModulePathChange(p, err)
+				if !changed {
+					return updateResult{
+						updated: false,
+						pkg:     p,
+						err:     fmt.Errorf("%s: %w", p.Name, err),
+					}
+				}
+				modulePathChanged = true
+				p = newPkg
+
+				ver, err = getLatestVer(p.ModulePath)
+				if err != nil {
+					return updateResult{
+						updated: false,
+						pkg:     p,
+						err:     fmt.Errorf("%s: %w", p.Name, err),
+					}
 				}
 			}
 			p.Version.Latest = ver
 
 			// Check if we should update the package
-			shouldUpdate = !p.IsPackageUpToDate() || (!ignoreGoUpdate && !p.IsGoUpToDate())
+			shouldUpdate = modulePathChanged || !p.IsPackageUpToDate() || (!ignoreGoUpdate && !p.IsGoUpToDate())
 		}
 
 		if !shouldUpdate {
@@ -191,18 +208,29 @@ func update(pkgs []goutil.Package, dryRun, notification bool, cpus int, ignoreGo
 		if p.ImportPath == "" {
 			updateErr = fmt.Errorf("%s is not installed by 'go install' (or permission incorrect)", p.Name)
 		} else {
-			if slices.Contains(mainPkgNames, p.Name) {
-				if err := installMainOrMaster(p.ImportPath); err != nil {
+			originalName := p.Name
+			if err := installWithSelectedVersion(p, mainPkgNames); err != nil {
+				newPkg, changed := resolveModulePathChange(p, err)
+				if !changed {
 					updateErr = fmt.Errorf("%s: %w", p.Name, err)
-				}
-			} else {
-				if err := installLatest(p.ImportPath); err != nil {
-					updateErr = fmt.Errorf("%s: %w", p.Name, err)
+				} else {
+					p = newPkg
+					if retryErr := installWithSelectedVersion(p, mainPkgNames); retryErr != nil {
+						updateErr = fmt.Errorf("%s: %w", originalName, retryErr)
+					} else {
+						newName := binaryNameFromImportPath(p.ImportPath)
+						if err := removeOldBinaryIfRenamed(originalName, newName); err != nil {
+							updateErr = fmt.Errorf("%s: %w", originalName, err)
+						}
+						p.Name = newName
+					}
 				}
 			}
 		}
 
-		p.SetLatestVer()
+		if updateErr == nil {
+			p.SetLatestVer()
+		}
 		return updateResult{
 			updated: updateErr == nil,
 			pkg:     p,
@@ -259,6 +287,72 @@ func catchSignal(c chan os.Signal, dryRunManager *goutil.GoPaths) {
 			print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
 		}
 	}
+}
+
+func installWithSelectedVersion(pkg goutil.Package, mainPkgNames []string) error {
+	if slices.Contains(mainPkgNames, pkg.Name) {
+		return installMainOrMaster(pkg.ImportPath)
+	}
+	return installLatest(pkg.ImportPath)
+}
+
+func resolveModulePathChange(pkg goutil.Package, err error) (goutil.Package, bool) {
+	declaredPath, requiredPath, ok := detectModulePathErr(err)
+	if !ok {
+		return pkg, false
+	}
+
+	pkg.ImportPath = replaceImportPathPrefix(pkg.ImportPath, requiredPath, declaredPath)
+	pkg.ModulePath = declaredPath
+	return pkg, true
+}
+
+func replaceImportPathPrefix(importPath, oldModulePath, newModulePath string) string {
+	switch {
+	case importPath == "":
+		return newModulePath
+	case importPath == oldModulePath:
+		return newModulePath
+	case strings.HasPrefix(importPath, oldModulePath+"/"):
+		return newModulePath + strings.TrimPrefix(importPath, oldModulePath)
+	default:
+		return newModulePath
+	}
+}
+
+func removeOldBinaryIfRenamed(oldName, newName string) error {
+	if oldName == "" || newName == "" || oldName == newName {
+		return nil
+	}
+
+	goBin, err := goutil.GoBin()
+	if err != nil {
+		return fmt.Errorf("can't find installed binaries: %w", err)
+	}
+
+	oldBinaryPath := filepath.Join(goBin, oldName)
+	if _, err := os.Stat(oldBinaryPath); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("can't stat old binary %s: %w", oldBinaryPath, err)
+	}
+
+	if err := os.Remove(oldBinaryPath); err != nil {
+		return fmt.Errorf("can't remove old binary %s: %w", oldBinaryPath, err)
+	}
+	return nil
+}
+
+func binaryNameFromImportPath(importPath string) string {
+	binName := filepath.Base(importPath)
+	if runtime.GOOS == goosWindows {
+		goExe := os.Getenv("GOEXE")
+		if goExe != "" && !strings.HasSuffix(strings.ToLower(binName), strings.ToLower(goExe)) {
+			return binName + goExe
+		}
+	}
+	return binName
 }
 
 func pkgDigit(pkgs []goutil.Package) string {

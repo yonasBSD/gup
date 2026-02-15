@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ import (
 )
 
 const testVersionZero = "v0.0.0"
+const testVersionNine = "v9.9.9"
 
 func Test_gup(t *testing.T) {
 	type args struct {
@@ -249,7 +251,7 @@ func Test_gup_dryRun(t *testing.T) {
 	origGetLatest := getLatestVer
 	origInstallLatest := installLatest
 	origInstallMain := installMainOrMaster
-	getLatestVer = func(string) (string, error) { return "v9.9.9", nil }
+	getLatestVer = func(string) (string, error) { return testVersionNine, nil }
 	installLatest = func(string) error {
 		installCalled.Store(true)
 		return nil
@@ -511,4 +513,210 @@ func Test_gup_jobsClamp(t *testing.T) {
 	if got != 0 {
 		t.Errorf("gup() = %v, want 0", got)
 	}
+}
+
+func Test_replaceImportPathPrefix(t *testing.T) {
+	tests := []struct {
+		name       string
+		importPath string
+		oldModule  string
+		newModule  string
+		wantImport string
+	}{
+		{
+			name:       "same as module root",
+			importPath: "github.com/cosmtrek/air",
+			oldModule:  "github.com/cosmtrek/air",
+			newModule:  "github.com/air-verse/air",
+			wantImport: "github.com/air-verse/air",
+		},
+		{
+			name:       "subdir path",
+			importPath: "github.com/cosmtrek/air/cmd/air",
+			oldModule:  "github.com/cosmtrek/air",
+			newModule:  "github.com/air-verse/air",
+			wantImport: "github.com/air-verse/air/cmd/air",
+		},
+		{
+			name:       "empty import path",
+			importPath: "",
+			oldModule:  "github.com/cosmtrek/air",
+			newModule:  "github.com/air-verse/air",
+			wantImport: "github.com/air-verse/air",
+		},
+		{
+			name:       "no prefix match falls back to new module",
+			importPath: "github.com/example/tool",
+			oldModule:  "github.com/cosmtrek/air",
+			newModule:  "github.com/air-verse/air",
+			wantImport: "github.com/air-verse/air",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := replaceImportPathPrefix(tt.importPath, tt.oldModule, tt.newModule)
+			if got != tt.wantImport {
+				t.Errorf("replaceImportPathPrefix() = %q, want %q", got, tt.wantImport)
+			}
+		})
+	}
+}
+
+func Test_removeOldBinaryIfRenamed(t *testing.T) {
+	gobin := t.TempDir()
+	t.Setenv("GOBIN", gobin)
+
+	oldBinaryPath := filepath.Join(gobin, "old-tool")
+	if err := os.WriteFile(oldBinaryPath, []byte("dummy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := removeOldBinaryIfRenamed("old-tool", "new-tool"); err != nil {
+		t.Fatalf("removeOldBinaryIfRenamed() error = %v", err)
+	}
+	if _, err := os.Stat(oldBinaryPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("old binary should be removed. err = %v", err)
+	}
+
+	sameBinaryPath := filepath.Join(gobin, "same-tool")
+	if err := os.WriteFile(sameBinaryPath, []byte("dummy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := removeOldBinaryIfRenamed("same-tool", "same-tool"); err != nil {
+		t.Fatalf("removeOldBinaryIfRenamed() should not fail for same name: %v", err)
+	}
+	if _, err := os.Stat(sameBinaryPath); err != nil {
+		t.Fatalf("binary should remain when names are same. err = %v", err)
+	}
+}
+
+func Test_update_modulePathChangedOnGetLatest(t *testing.T) {
+	const (
+		oldModule = "github.com/cosmtrek/air"
+		newModule = "github.com/air-verse/air"
+		oldImport = "github.com/cosmtrek/air/cmd/air"
+		newImport = "github.com/air-verse/air/cmd/air"
+	)
+
+	origGetLatest := getLatestVer
+	origInstallLatest := installLatest
+	origInstallMain := installMainOrMaster
+	defer func() {
+		getLatestVer = origGetLatest
+		installLatest = origInstallLatest
+		installMainOrMaster = origInstallMain
+	}()
+
+	var latestCalls []string
+	getLatestVer = func(modulePath string) (string, error) {
+		latestCalls = append(latestCalls, modulePath)
+		if modulePath == oldModule {
+			return "", modulePathMismatchErr(oldModule, newModule)
+		}
+		if modulePath == newModule {
+			return "v1.2.3", nil
+		}
+		return "", errors.New("unexpected module path")
+	}
+
+	var installCalls []string
+	installLatest = func(importPath string) error {
+		installCalls = append(installCalls, importPath)
+		return nil
+	}
+	installMainOrMaster = func(string) error {
+		t.Fatal("installMainOrMaster should not be called")
+		return nil
+	}
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "air",
+			ImportPath: oldImport,
+			ModulePath: oldModule,
+			Version: &goutil.Version{
+				Current: "v1.2.3",
+			},
+			GoVersion: &goutil.Version{
+				Current: "go1.22.4",
+				Latest:  "go1.22.4",
+			},
+		},
+	}
+
+	if got := update(pkgs, false, false, 1, true, nil); got != 0 {
+		t.Fatalf("update() = %d, want 0", got)
+	}
+	if diff := cmp.Diff([]string{oldModule, newModule}, latestCalls); diff != "" {
+		t.Errorf("latest module path calls mismatch (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([]string{newImport}, installCalls); diff != "" {
+		t.Errorf("install import path calls mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func Test_update_modulePathChangedOnInstall(t *testing.T) {
+	const (
+		oldModule = "github.com/cosmtrek/air"
+		newModule = "github.com/air-verse/air"
+		oldImport = "github.com/cosmtrek/air"
+		newImport = "github.com/air-verse/air"
+	)
+
+	origGetLatest := getLatestVer
+	origInstallLatest := installLatest
+	origInstallMain := installMainOrMaster
+	defer func() {
+		getLatestVer = origGetLatest
+		installLatest = origInstallLatest
+		installMainOrMaster = origInstallMain
+	}()
+
+	getLatestVer = func(string) (string, error) { return testVersionNine, nil }
+	installMainOrMaster = func(string) error {
+		t.Fatal("installMainOrMaster should not be called")
+		return nil
+	}
+
+	var installCalls []string
+	installLatest = func(importPath string) error {
+		installCalls = append(installCalls, importPath)
+		switch len(installCalls) {
+		case 1:
+			return modulePathMismatchErr(oldModule, newModule)
+		case 2:
+			return nil
+		default:
+			return errors.New("unexpected install call")
+		}
+	}
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "air",
+			ImportPath: oldImport,
+			ModulePath: newModule,
+			Version: &goutil.Version{
+				Current: "v1.0.0",
+			},
+			GoVersion: &goutil.Version{
+				Current: "go1.22.4",
+				Latest:  "go1.22.4",
+			},
+		},
+	}
+
+	if got := update(pkgs, false, false, 1, true, nil); got != 0 {
+		t.Fatalf("update() = %d, want 0", got)
+	}
+	if diff := cmp.Diff([]string{oldImport, newImport}, installCalls); diff != "" {
+		t.Errorf("install import path calls mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func modulePathMismatchErr(requiredPath, declaredPath string) error {
+	return errors.New("version constraints conflict:\n" +
+		"module declares its path as: " + declaredPath + "\n" +
+		"but was required as: " + requiredPath)
 }

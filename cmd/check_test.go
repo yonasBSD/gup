@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -391,5 +392,71 @@ func Test_check_jobsClamp(t *testing.T) {
 
 	if got != 0 && got != 1 {
 		t.Errorf("check() = %v, want 0 or 1", got)
+	}
+}
+
+func Test_doCheck_modulePathChanged(t *testing.T) {
+	const (
+		oldModule = "github.com/cosmtrek/air"
+		newModule = "github.com/air-verse/air"
+	)
+
+	origGetLatest := getLatestVer
+	defer func() {
+		getLatestVer = origGetLatest
+	}()
+
+	getLatestVer = func(modulePath string) (string, error) {
+		if modulePath == oldModule {
+			return "", errors.New("version constraints conflict:\n" +
+				"module declares its path as: " + newModule + "\n" +
+				"but was required as: " + oldModule)
+		}
+		if modulePath == newModule {
+			return "v1.2.3", nil
+		}
+		return "", errors.New("unexpected module path")
+	}
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "air",
+			ImportPath: "github.com/cosmtrek/air/cmd/air",
+			ModulePath: oldModule,
+			Version: &goutil.Version{
+				Current: "v1.2.3",
+			},
+			GoVersion: &goutil.Version{
+				Current: "go1.22.4",
+				Latest:  "go1.22.4",
+			},
+		},
+	}
+	got := doCheck(pkgs, 1, true)
+
+	pw.Close()
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	buf := bytes.Buffer{}
+	if _, err := io.Copy(&buf, pr); err != nil {
+		t.Fatal(err)
+	}
+	_ = pr.Close()
+
+	if got != 0 {
+		t.Fatalf("doCheck() = %v, want 0", got)
+	}
+	if !strings.Contains(buf.String(), "$ gup update air ") {
+		t.Fatalf("expected update hint for migrated module path, got:\n%s", buf.String())
 	}
 }

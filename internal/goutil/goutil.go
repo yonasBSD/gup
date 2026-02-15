@@ -429,6 +429,8 @@ func GetPackageVersion(cmdName string) string {
 }
 
 var goVersionRegex = regexp.MustCompile(`(^|\s)(go[1-9]\S+)`)
+var moduleDeclaresPathRegex = regexp.MustCompile(`(?m)module declares its path as:\s*(\S+)`)
+var requiredAsPathRegex = regexp.MustCompile(`(?m)but was required as:\s*(\S+)`)
 
 // GetInstalledGoVersion return installed go version.
 func GetInstalledGoVersion() (string, error) {
@@ -447,4 +449,28 @@ func GetInstalledGoVersion() (string, error) {
 	}
 
 	return "", fmt.Errorf("can't find go version string in %q", strings.TrimSpace(stdout.String()))
+}
+
+// DetectModulePathMismatch detects module path mismatch errors from go command output.
+// It returns:
+//   - declaredPath: module path declared in go.mod
+//   - requiredPath: module path that was originally required
+//   - ok: true when both paths are detected and they differ
+func DetectModulePathMismatch(err error) (declaredPath, requiredPath string, ok bool) {
+	if err == nil {
+		return "", "", false
+	}
+
+	declared := moduleDeclaresPathRegex.FindStringSubmatch(err.Error())
+	required := requiredAsPathRegex.FindStringSubmatch(err.Error())
+	if len(declared) < 2 || len(required) < 2 {
+		return "", "", false
+	}
+
+	declaredPath = strings.TrimSpace(declared[1])
+	requiredPath = strings.TrimSpace(required[1])
+	if declaredPath == "" || requiredPath == "" || declaredPath == requiredPath {
+		return "", "", false
+	}
+	return declaredPath, requiredPath, true
 }

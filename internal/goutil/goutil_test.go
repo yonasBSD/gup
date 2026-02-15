@@ -73,6 +73,64 @@ func TestGetLatestVer_unknown_module(t *testing.T) {
 	}
 }
 
+func TestDetectModulePathMismatch(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          error
+		wantDeclared string
+		wantRequired string
+		wantOK       bool
+	}{
+		{
+			name: "detect mismatch",
+			err: errors.New(`go: github.com/cosmtrek/air@latest: version constraints conflict:
+	github.com/cosmtrek/air@v1.52.2: parsing go.mod:
+	module declares its path as: github.com/air-verse/air
+	        but was required as: github.com/cosmtrek/air`),
+			wantDeclared: "github.com/air-verse/air",
+			wantRequired: "github.com/cosmtrek/air",
+			wantOK:       true,
+		},
+		{
+			name:         "nil error",
+			err:          nil,
+			wantDeclared: "",
+			wantRequired: "",
+			wantOK:       false,
+		},
+		{
+			name:         "not mismatch",
+			err:          errors.New("some other error"),
+			wantDeclared: "",
+			wantRequired: "",
+			wantOK:       false,
+		},
+		{
+			name: "same path is not mismatch",
+			err: errors.New(`module declares its path as: github.com/example/tool
+but was required as: github.com/example/tool`),
+			wantDeclared: "",
+			wantRequired: "",
+			wantOK:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			declared, required, ok := DetectModulePathMismatch(tt.err)
+			if ok != tt.wantOK {
+				t.Fatalf("DetectModulePathMismatch() ok = %v, want %v", ok, tt.wantOK)
+			}
+			if declared != tt.wantDeclared {
+				t.Errorf("declared path = %q, want %q", declared, tt.wantDeclared)
+			}
+			if required != tt.wantRequired {
+				t.Errorf("required path = %q, want %q", required, tt.wantRequired)
+			}
+		})
+	}
+}
+
 func TestGetPackageInformation_unknown_module(t *testing.T) {
 	// Backup and defer restore STDERR via print package
 	oldPrintStderr := print.Stderr

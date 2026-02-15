@@ -70,7 +70,7 @@ func helper_stubUpdateOps(t *testing.T) {
 	orgInstallMainOrMaster := installMainOrMaster
 
 	getLatestVer = func(string) (string, error) {
-		return "v9.9.9", nil
+		return testVersionNine, nil
 	}
 	installLatest = func(string) error {
 		return nil
