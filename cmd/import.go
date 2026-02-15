@@ -52,6 +52,11 @@ Finally, you execute the export subcommand in this state.`,
 }
 
 func runImport(cmd *cobra.Command, _ []string) int {
+	if err := goutil.CanUseGoCmd(); err != nil {
+		print.Err(fmt.Errorf("%s: %w", "you didn't install golang", err))
+		return 1
+	}
+
 	dryRun, err := getFlagBool(cmd, "dry-run")
 	if err != nil {
 		print.Err(err)

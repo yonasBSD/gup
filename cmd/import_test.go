@@ -72,6 +72,37 @@ func Test_runImport_flagErrors(t *testing.T) {
 	}
 }
 
+func Test_runImport_notUseGoCmd(t *testing.T) {
+	t.Setenv("PATH", "")
+
+	cmd := newImportCmd()
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	got := runImport(cmd, nil)
+	pw.Close()
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	if got != 1 {
+		t.Errorf("runImport() = %v, want 1", got)
+	}
+
+	buf := bytes.Buffer{}
+	_, _ = io.Copy(&buf, pr)
+	pr.Close()
+	if !strings.Contains(buf.String(), "you didn't install golang") {
+		t.Errorf("expected go command error, got: %s", buf.String())
+	}
+}
+
 func Test_runImport_fileNotFound(t *testing.T) {
 	cmd := newImportCmd()
 	if err := cmd.Flags().Set("file", "/no/such/file.json"); err != nil {
