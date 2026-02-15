@@ -141,6 +141,26 @@ func Test_removeLoop(t *testing.T) {
 	}
 }
 
+func Test_removeLoop_rejectPathTraversal(t *testing.T) {
+	gobin := filepath.Join(t.TempDir(), "bin")
+	if err := os.MkdirAll(gobin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	victim := filepath.Join(filepath.Dir(gobin), "victim")
+	if err := os.WriteFile(victim, []byte("dummy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := removeLoop(gobin, true, []string{"../victim"}); got != 1 {
+		t.Fatalf("removeLoop() = %v, want %v", got, 1)
+	}
+
+	if !fileutil.IsFile(victim) {
+		t.Fatalf("path traversal should not delete %s", victim)
+	}
+}
+
 // mockStdin is a helper function that lets the test pretend dummyInput as os.Stdin.
 // It will return a function for `defer` to clean up after the test.
 func mockStdin(t *testing.T, dummyInput string) (funcDefer func(), err error) {

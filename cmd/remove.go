@@ -61,11 +61,17 @@ var GOOS = runtime.GOOS //nolint:gochecknoglobals
 func removeLoop(gobin string, force bool, target []string) int {
 	result := 0
 	for _, v := range target {
+		orig := v
 		// In Windows, $GOEXE is set to the ".exe" extension.
 		// The user-specified command name (arguments) may not have an extension.
 		execSuffix := os.Getenv("GOEXE")
 		if GOOS == goosWindows && !strings.HasSuffix(v, execSuffix) {
 			v += execSuffix
+		}
+		if !isSafeBinaryName(v) {
+			print.Err(fmt.Errorf("invalid command name: %s", orig))
+			result = 1
+			continue
 		}
 
 		target := filepath.Join(gobin, v)
@@ -89,4 +95,20 @@ func removeLoop(gobin string, force bool, target []string) int {
 		print.Info("removed " + target)
 	}
 	return result
+}
+
+func isSafeBinaryName(name string) bool {
+	if strings.TrimSpace(name) == "" {
+		return false
+	}
+	if filepath.IsAbs(name) {
+		return false
+	}
+	if strings.ContainsAny(name, `/\`) {
+		return false
+	}
+	if filepath.Base(name) != name {
+		return false
+	}
+	return true
 }
