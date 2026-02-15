@@ -477,14 +477,14 @@ func resolveUpdateChannels(
 	latestPkgNames []string,
 ) (map[string]goutil.UpdateChannel, error) {
 	channelMap := make(map[string]goutil.UpdateChannel, len(pkgs))
-	exists := make(map[string]struct{}, len(pkgs))
+	normalizedToActual := make(map[string]string, len(pkgs))
 	for _, p := range pkgs {
 		channelMap[p.Name] = goutil.UpdateChannelLatest
-		exists[p.Name] = struct{}{}
+		normalizedToActual[normalizeBinaryNameForMatch(p.Name)] = p.Name
 	}
 	for _, p := range confPkgs {
-		if _, ok := exists[p.Name]; ok {
-			channelMap[p.Name] = goutil.NormalizeUpdateChannel(string(p.UpdateChannel))
+		if actual, ok := normalizedToActual[normalizeBinaryNameForMatch(p.Name)]; ok {
+			channelMap[actual] = goutil.NormalizeUpdateChannel(string(p.UpdateChannel))
 		}
 	}
 
@@ -495,16 +495,18 @@ func resolveUpdateChannels(
 			if name == "" {
 				continue
 			}
-			if prevFlag, ok := assignedByFlag[name]; ok && prevFlag != flag {
+			normalized := normalizeBinaryNameForMatch(name)
+			if prevFlag, ok := assignedByFlag[normalized]; ok && prevFlag != flag {
 				return fmt.Errorf("same binary (%s) is specified in both --%s and --%s", name, prevFlag, flag)
 			}
-			assignedByFlag[name] = flag
+			assignedByFlag[normalized] = flag
 
-			if _, ok := exists[name]; !ok {
+			actual, ok := normalizedToActual[normalized]
+			if !ok {
 				print.Warn("not found '" + name + "' package in update target")
 				continue
 			}
-			channelMap[name] = channel
+			channelMap[actual] = channel
 		}
 		return nil
 	}
