@@ -153,8 +153,8 @@ func gup(cmd *cobra.Command, args []string) int {
 
 	confPkgs, err := readConfFileIfExists(confReadPath)
 	if err != nil {
-		print.Err(fmt.Errorf("failed to read %s: %w", confReadPath, err))
-		return 1
+		print.Warn(fmt.Sprintf("failed to read %s: %s (continuing without config)", confReadPath, err))
+		confPkgs = []goutil.Package{}
 	}
 
 	channelMap, err := resolveUpdateChannels(pkgs, confPkgs, mainPkgNames, masterPkgNames, latestPkgNames)

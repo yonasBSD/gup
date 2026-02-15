@@ -293,8 +293,8 @@ func Test_gup_invalidConfigFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if got := gup(newUpdateCmd(), []string{}); got != 1 {
-		t.Fatalf("gup() = %v, want %v", got, 1)
+	if got := gup(newUpdateCmd(), []string{}); got != 0 {
+		t.Fatalf("gup() = %v, want %v (invalid config should be warned, not fatal)", got, 0)
 	}
 }
 
