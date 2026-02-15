@@ -10,7 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/fatih/color"
 	"github.com/hashicorp/go-version"
@@ -414,32 +416,71 @@ func IsStdCmd(importPath string) bool {
 }
 
 // GetPackageInformation return golang package information.
+// Binary info is read in parallel using a worker pool to speed up initial scanning.
 func GetPackageInformation(binList []string) []Package {
-	pkgs := []Package{}
 	goVer, err := GetInstalledGoVersion()
 	if err != nil {
 		goVer = unknown
 	}
-	for _, v := range binList {
-		info, err := buildinfo.ReadFile(v)
-		if err != nil {
-			print.Warn(err)
-			continue
+
+	if len(binList) == 0 {
+		return nil
+	}
+
+	type indexedPkg struct {
+		pkg Package
+		ok  bool
+	}
+
+	numWorkers := runtime.NumCPU()
+	if numWorkers > len(binList) {
+		numWorkers = len(binList)
+	}
+
+	results := make([]indexedPkg, len(binList))
+	jobs := make(chan int, len(binList))
+	var wg sync.WaitGroup
+
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				v := binList[i]
+				info, err := buildinfo.ReadFile(v)
+				if err != nil {
+					print.Warn(err)
+					continue
+				}
+				if IsStdCmd(info.Path) {
+					continue
+				}
+				pkg := Package{
+					Name:       filepath.Base(v),
+					ImportPath: info.Path,
+					ModulePath: info.Main.Path,
+					Version:    NewVersion(),
+					GoVersion:  NewVersion(),
+				}
+				pkg.Version.Current = info.Main.Version
+				pkg.GoVersion.Current, _, _ = strings.Cut(info.GoVersion, " ")
+				pkg.GoVersion.Latest = goVer
+				results[i] = indexedPkg{pkg: pkg, ok: true}
+			}
+		}()
+	}
+
+	for i := range binList {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+
+	pkgs := make([]Package, 0, len(binList))
+	for _, r := range results {
+		if r.ok {
+			pkgs = append(pkgs, r.pkg)
 		}
-		if IsStdCmd(info.Path) {
-			continue
-		}
-		pkg := Package{
-			Name:       filepath.Base(v),
-			ImportPath: info.Path,
-			ModulePath: info.Main.Path,
-			Version:    NewVersion(),
-			GoVersion:  NewVersion(),
-		}
-		pkg.Version.Current = info.Main.Version
-		pkg.GoVersion.Current, _, _ = strings.Cut(info.GoVersion, " ")
-		pkg.GoVersion.Latest = goVer
-		pkgs = append(pkgs, pkg)
 	}
 	return pkgs
 }

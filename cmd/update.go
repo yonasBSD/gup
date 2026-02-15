@@ -224,6 +224,8 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	verCache := newLatestVerCache()
+
 	print.Info("update binary under $GOPATH/bin or $GOBIN")
 	signals := make(chan os.Signal, 1)
 	if dryRun {
@@ -243,7 +245,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 		shouldUpdate := true
 		modulePathChanged := false
 		if p.ModulePath != "" {
-			ver, err := getLatestVer(p.ModulePath)
+			ver, err := verCache.get(p.ModulePath)
 			if err != nil {
 				newPkg, changed := resolveModulePathChange(p, err)
 				if !changed {
@@ -256,7 +258,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 				modulePathChanged = true
 				p = newPkg
 
-				ver, err = getLatestVer(p.ModulePath)
+				ver, err = verCache.get(p.ModulePath)
 				if err != nil {
 					return updateResult{
 						updated: false,
@@ -281,6 +283,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 
 		// Run the update
 		var updateErr error
+		installedViaRetry := false
 		if p.ImportPath == "" {
 			updateErr = fmt.Errorf("%s is not installed by 'go install' (or permission incorrect)", p.Name)
 		} else {
@@ -292,6 +295,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 				if !changed {
 					updateErr = fmt.Errorf("%s: %w", p.Name, err)
 				} else {
+					installedViaRetry = true
 					p = newPkg
 					if retryErr := installWithSelectedVersion(p.ImportPath, channel); retryErr != nil {
 						updateErr = fmt.Errorf("%s: %w", originalName, retryErr)
@@ -308,7 +312,11 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 		}
 
 		if updateErr == nil {
-			p.SetLatestVer()
+			// For @latest with no module-path surprises, p.Version.Latest
+			// is already correct from verCache; skip expensive buildinfo.ReadFile.
+			if p.UpdateChannel != goutil.UpdateChannelLatest || modulePathChanged || installedViaRetry {
+				p.SetLatestVer()
+			}
 		}
 		var renamed string
 		if updateErr == nil && p.Name != originalName {

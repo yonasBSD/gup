@@ -77,6 +77,7 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
 	var mu sync.Mutex
 	needUpdatePkgs := []goutil.Package{}
+	verCache := newLatestVerCache()
 
 	print.Info("check binary under $GOPATH/bin or $GOBIN")
 
@@ -87,7 +88,7 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 		} else {
 			var latestVer string
 			modulePathChanged := false
-			latestVer, err = getLatestVer(p.ModulePath)
+			latestVer, err = verCache.get(p.ModulePath)
 			if err != nil {
 				newPkg, changed := resolveModulePathChange(p, err)
 				if !changed {
@@ -95,7 +96,7 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 				} else {
 					modulePathChanged = true
 					p = newPkg
-					latestVer, err = getLatestVer(p.ModulePath)
+					latestVer, err = verCache.get(p.ModulePath)
 					if err != nil {
 						err = fmt.Errorf(" %s %w", p.Name, err)
 					}
