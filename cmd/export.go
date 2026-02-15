@@ -63,7 +63,11 @@ func export(cmd *cobra.Command, _ []string) int {
 		return 1
 	}
 	pkgs = validPkgInfo(pkgs)
-	confPkgs := readConfFileIfExists(configPath)
+	confPkgs, err := readConfFileIfExists(configPath)
+	if err != nil {
+		print.Warn("failed to read " + configPath + ": " + err.Error())
+		confPkgs = []goutil.Package{}
+	}
 	pkgs = applySavedChannels(pkgs, confPkgs)
 
 	if len(pkgs) == 0 {

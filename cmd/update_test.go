@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/spf13/cobra"
@@ -257,6 +258,24 @@ func Test_gup_ignoreGoUpdateFlag(t *testing.T) {
 	output := strings.Split(buf.String(), "\n")
 	if len(output) == 0 || !strings.Contains(output[0], "update binary under") {
 		t.Fatalf("unexpected output: %v", output)
+	}
+}
+
+func Test_gup_invalidConfigFile(t *testing.T) {
+	setupXDGBase(t)
+	t.Setenv("GOBIN", filepath.Join("testdata", "check_success"))
+	helper_stubUpdateOps(t)
+
+	confPath := config.FilePath()
+	if err := os.MkdirAll(filepath.Dir(confPath), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(confPath, []byte("{invalid"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := gup(newUpdateCmd(), []string{}); got != 1 {
+		t.Fatalf("gup() = %v, want %v", got, 1)
 	}
 }
 

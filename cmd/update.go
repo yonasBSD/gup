@@ -151,7 +151,11 @@ func gup(cmd *cobra.Command, args []string) int {
 		confWritePath = confReadPath
 	}
 
-	confPkgs := readConfFileIfExists(confReadPath)
+	confPkgs, err := readConfFileIfExists(confReadPath)
+	if err != nil {
+		print.Err(fmt.Errorf("failed to read %s: %w", confReadPath, err))
+		return 1
+	}
 
 	channelMap, err := resolveUpdateChannels(pkgs, confPkgs, mainPkgNames, masterPkgNames, latestPkgNames)
 	if err != nil {
@@ -435,16 +439,15 @@ func packageUpdateChannel(name string, fallback goutil.UpdateChannel, channelMap
 	return goutil.NormalizeUpdateChannel(string(fallback))
 }
 
-func readConfFileIfExists(path string) []goutil.Package {
+func readConfFileIfExists(path string) ([]goutil.Package, error) {
 	if !fileutil.IsFile(path) {
-		return []goutil.Package{}
+		return []goutil.Package{}, nil
 	}
 	pkgs, err := config.ReadConfFile(path)
 	if err != nil {
-		// Ignore non-JSON / legacy config content and treat as no config.
-		return []goutil.Package{}
+		return nil, err
 	}
-	return pkgs
+	return pkgs, nil
 }
 
 func shouldPersistChannels(_ []goutil.Package, mainPkgNames, masterPkgNames, latestPkgNames []string) bool {
