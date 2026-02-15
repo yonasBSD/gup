@@ -12,7 +12,7 @@ coverage:
     - "github.com/nao1215/gup/internal/notify/notify.go"
     - "github.com/nao1215/gup/internal/completion/completion.go"
   badge:
-    path: docs/coverage.svg
+    path: doc/coverage.svg
 diff:
   datastores:
     - artifact://${GITHUB_REPOSITORY}
@@ -24,7 +24,7 @@ report:
     - artifact://${GITHUB_REPOSITORY}
 codeToTestRatio:
   badge:
-    path: docs/ratio.svg
+    path: doc/ratio.svg
 testExecutionTime:
   badge:
-    path: docs/time.svg
+    path: doc/time.svg
