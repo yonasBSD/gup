@@ -1,3 +1,11 @@
+## [v0.28.3](https://github.com/nao1215/gup/compare/v0.28.2...v0.28.3) (2026-02-15)
+
+* Fix bug fixes and CI improvements [#230](https://github.com/nao1215/gup/pull/230) ([nao1215](https://github.com/nao1215))
+* Fix address review findings across codebase [#229](https://github.com/nao1215/gup/pull/229) ([nao1215](https://github.com/nao1215))
+* Fix issue #206 [#228](https://github.com/nao1215/gup/pull/228) ([nao1215](https://github.com/nao1215))
+* Remove gorky package [#227](https://github.com/nao1215/gup/pull/227) ([nao1215](https://github.com/nao1215))
+* Bump pointer v1.4.0 [#226](https://github.com/nao1215/gup/pull/226) ([nao1215](https://github.com/nao1215))
+
 ## [v0.28.2](https://github.com/nao1215/gup/compare/v0.28.1...v0.28.2) (2025-12-23)
 
 * docs: add mise alternate installation instructions (en/fr) and fix shell quoting in README [#222](https://github.com/nao1215/gup/pull/222) ([jylenhof](https://github.com/jylenhof))
