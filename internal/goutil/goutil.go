@@ -356,6 +356,18 @@ func BinaryPathList(path string) ([]string, error) {
 	return list, nil
 }
 
+// IsStdCmd reports whether the given import path belongs to the Go standard library.
+// Standard library paths (e.g., "cmd/go", "cmd/gofmt") never contain a dot in
+// the first path segment, while third-party module paths always start with a
+// domain name that contains a dot (e.g., "github.com/user/repo").
+func IsStdCmd(importPath string) bool {
+	if importPath == "" {
+		return false
+	}
+	firstElem, _, _ := strings.Cut(importPath, "/")
+	return !strings.Contains(firstElem, ".")
+}
+
 // GetPackageInformation return golang package information.
 func GetPackageInformation(binList []string) []Package {
 	pkgs := []Package{}
@@ -367,6 +379,9 @@ func GetPackageInformation(binList []string) []Package {
 		info, err := buildinfo.ReadFile(v)
 		if err != nil {
 			print.Warn(err)
+			continue
+		}
+		if IsStdCmd(info.Path) {
 			continue
 		}
 		pkg := Package{

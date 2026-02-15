@@ -3,8 +3,10 @@ package goutil
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -467,6 +469,52 @@ func TestVersionUpToDate_golden(t *testing.T) {
 				t.Errorf("versionUpToDate() test_name=%s, got = %v, want %v", tt.name, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestIsStdCmd(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		importPath string
+		want       bool
+	}{
+		{name: "cmd/go is standard", importPath: "cmd/go", want: true},
+		{name: "cmd/gofmt is standard", importPath: "cmd/gofmt", want: true},
+		{name: "cmd/vet is standard", importPath: "cmd/vet", want: true},
+		{name: "fmt is standard", importPath: "fmt", want: true},
+		{name: "github.com third-party", importPath: "github.com/nao1215/gup", want: false},
+		{name: "golang.org third-party", importPath: "golang.org/x/tools/cmd/goimports", want: false},
+		{name: "example.com third-party", importPath: "example.com/foo/bar", want: false},
+		{name: "empty string", importPath: "", want: false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got := IsStdCmd(tt.importPath)
+			if got != tt.want {
+				t.Errorf("IsStdCmd(%q) = %v, want %v", tt.importPath, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGetPackageInformation_std_cmd_filtered(t *testing.T) {
+	// Find gofmt binary, which is a standard library command (Path: "cmd/gofmt").
+	// GetPackageInformation should filter it out via IsStdCmd.
+	ctx := context.Background()
+	goroot, err := exec.CommandContext(ctx, "go", "env", "GOROOT").Output()
+	if err != nil {
+		t.Skipf("could not determine GOROOT: %v", err)
+	}
+	gofmt := filepath.Join(strings.TrimSpace(string(goroot)), "bin", "gofmt")
+	if runtime.GOOS == "windows" {
+		gofmt += ".exe"
+	}
+	if _, err := os.Stat(gofmt); err != nil {
+		t.Skipf("gofmt not found at %s: %v", gofmt, err)
+	}
+
+	result := GetPackageInformation([]string{gofmt})
+	if len(result) != 0 {
+		t.Errorf("GetPackageInformation() should filter standard library commands, got: %v", result)
 	}
 }
 
