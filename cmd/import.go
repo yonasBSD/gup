@@ -23,7 +23,7 @@ func newImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "import",
 		Short: "Install command according to gup.json.",
-	Long: `Install command according to gup.json.
+		Long: `Install command according to gup.json.
 	
 Use export/import if you want to install the same golang binaries
 across multiple systems.

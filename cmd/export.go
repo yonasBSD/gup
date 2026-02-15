@@ -13,7 +13,7 @@ func newExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export the binary names under $GOPATH/bin and their path info. to gup.json.",
-	Long: `Export the binary names under $GOPATH/bin and their path info. to gup.json.
+		Long: `Export the binary names under $GOPATH/bin and their path info. to gup.json.
 	
 Use export/import if you want to install the same golang binaries
 across multiple systems. This sub-command writes gup.json

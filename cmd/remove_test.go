@@ -142,6 +142,8 @@ func Test_removeLoop(t *testing.T) {
 }
 
 func Test_removeLoop_rejectPathTraversal(t *testing.T) {
+	t.Parallel()
+
 	gobin := filepath.Join(t.TempDir(), "bin")
 	if err := os.MkdirAll(gobin, 0o755); err != nil {
 		t.Fatal(err)
