@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gup.exe",
+      "import_path": "github.com/nao1215/gup",
+      "version": "v1.0.0",
+      "channel": "latest"
+    }
+  ]
+}

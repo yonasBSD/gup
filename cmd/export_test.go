@@ -12,6 +12,7 @@ import (
 
 	"github.com/adrg/xdg"
 	"github.com/google/go-cmp/cmp"
+	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
@@ -243,7 +244,7 @@ func Test_writeConfigFile(t *testing.T) {
 			}
 			xdg.ConfigHome = noWrite
 
-			if err := writeConfigFile(tt.args.pkgs); (err != nil) != tt.wantErr {
+			if err := writeConfigFile(config.FilePath(), tt.args.pkgs); (err != nil) != tt.wantErr {
 				t.Errorf("writeConfigFile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

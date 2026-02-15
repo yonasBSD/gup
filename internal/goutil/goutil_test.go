@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fatih/color"
 	"github.com/google/go-cmp/cmp"
 	"github.com/nao1215/gup/internal/print"
 )
@@ -69,6 +70,64 @@ func TestGetLatestVer_unknown_module(t *testing.T) {
 	// Assert to be empty
 	if out != "" {
 		t.Errorf("GetLatestVer() should return empty string on error. got: %v", out)
+	}
+}
+
+func TestDetectModulePathMismatch(t *testing.T) {
+	tests := []struct {
+		name         string
+		err          error
+		wantDeclared string
+		wantRequired string
+		wantOK       bool
+	}{
+		{
+			name: "detect mismatch",
+			err: errors.New(`go: github.com/cosmtrek/air@latest: version constraints conflict:
+	github.com/cosmtrek/air@v1.52.2: parsing go.mod:
+	module declares its path as: github.com/air-verse/air
+	        but was required as: github.com/cosmtrek/air`),
+			wantDeclared: "github.com/air-verse/air",
+			wantRequired: "github.com/cosmtrek/air",
+			wantOK:       true,
+		},
+		{
+			name:         "nil error",
+			err:          nil,
+			wantDeclared: "",
+			wantRequired: "",
+			wantOK:       false,
+		},
+		{
+			name:         "not mismatch",
+			err:          errors.New("some other error"),
+			wantDeclared: "",
+			wantRequired: "",
+			wantOK:       false,
+		},
+		{
+			name: "same path is not mismatch",
+			err: errors.New(`module declares its path as: github.com/example/tool
+but was required as: github.com/example/tool`),
+			wantDeclared: "",
+			wantRequired: "",
+			wantOK:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			declared, required, ok := DetectModulePathMismatch(tt.err)
+			if ok != tt.wantOK {
+				t.Fatalf("DetectModulePathMismatch() ok = %v, want %v", ok, tt.wantOK)
+			}
+			if declared != tt.wantDeclared {
+				t.Errorf("declared path = %q, want %q", declared, tt.wantDeclared)
+			}
+			if required != tt.wantRequired {
+				t.Errorf("required path = %q, want %q", required, tt.wantRequired)
+			}
+		})
 	}
 }
 
@@ -262,6 +321,22 @@ func TestInstallLatest_golden(t *testing.T) {
 	err := InstallLatest("github.com/nao1215/gup")
 
 	// Require to be no error
+	if err != nil {
+		t.Fatalf("it should not return error. got: %v", err)
+	}
+}
+
+func TestInstall_specificVersion_golden(t *testing.T) {
+	// Backup and defer restore
+	oldGoExe := goExe
+	defer func() {
+		goExe = oldGoExe
+	}()
+
+	// Mock the `go` to `echo` command to print instead of executing go.
+	goExe = "echo"
+
+	err := Install("github.com/nao1215/gup", "v1.0.0")
 	if err != nil {
 		t.Fatalf("it should not return error. got: %v", err)
 	}
@@ -518,6 +593,30 @@ func TestGetPackageInformation_std_cmd_filtered(t *testing.T) {
 	}
 }
 
+func TestNormalizeUpdateChannel(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want UpdateChannel
+	}{
+		{name: "latest", in: "latest", want: UpdateChannelLatest},
+		{name: "main", in: "main", want: UpdateChannelMain},
+		{name: "master", in: "master", want: UpdateChannelMaster},
+		{name: "upper case", in: "MAIN", want: UpdateChannelMain},
+		{name: "blank defaults latest", in: "", want: UpdateChannelLatest},
+		{name: "unknown defaults latest", in: "snapshot", want: UpdateChannelLatest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizeUpdateChannel(tt.in)
+			if got != tt.want {
+				t.Errorf("NormalizeUpdateChannel(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 // ============================================================================
 //  Methods
 // ============================================================================
@@ -653,6 +752,44 @@ func TestGoPaths_StartDryRunMode_fail_to_get_temp_dir(t *testing.T) {
 	}
 }
 
+func TestGoPaths_StartDryRunMode_setsTmpPath(t *testing.T) {
+	t.Setenv("GOBIN", t.Name())
+	t.Setenv("GOPATH", "")
+
+	gp := NewGoPaths()
+	if gp.GOBIN == "" {
+		t.Fatal("test setup failed: GOBIN should not be empty")
+	}
+
+	if err := gp.StartDryRunMode(); err != nil {
+		t.Fatalf("StartDryRunMode() should return no error. got: %v", err)
+	}
+
+	if gp.TmpPath == "" {
+		t.Fatal("StartDryRunMode() should set TmpPath")
+	}
+
+	if got := os.Getenv("GOBIN"); got != gp.TmpPath {
+		t.Fatalf("StartDryRunMode() should set GOBIN to TmpPath. got: %s, want: %s", got, gp.TmpPath)
+	}
+
+	if _, err := os.Stat(gp.TmpPath); err != nil {
+		t.Fatalf("temporary directory should exist while dry-run is active. err: %v", err)
+	}
+
+	if err := gp.EndDryRunMode(); err != nil {
+		t.Fatalf("EndDryRunMode() should return no error. got: %v", err)
+	}
+
+	if got := os.Getenv("GOBIN"); got != t.Name() {
+		t.Fatalf("EndDryRunMode() should restore GOBIN. got: %s, want: %s", got, t.Name())
+	}
+
+	if _, err := os.Stat(gp.TmpPath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temporary directory should be removed after EndDryRunMode(). err: %v", err)
+	}
+}
+
 func TestGoPaths_StartDryRunMode_fail_if_key_not_set(t *testing.T) {
 	// Backup and defer restore
 	oldKeyGoBin := keyGoBin
@@ -770,6 +907,33 @@ func TestPackage_CurrentToLatestStr_not_up_to_date(t *testing.T) {
 	}
 }
 
+func TestPackage_CurrentToLatestStr_not_up_to_date_color(t *testing.T) {
+	oldNoColor := color.NoColor
+	color.NoColor = false
+	t.Cleanup(func() { color.NoColor = oldNoColor })
+
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		ModulePath: "github.com/dummy_name/dummy/foo",
+		Version: &Version{
+			Current: "v0.0.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.22.4",
+			Latest:  "go1.22.4",
+		},
+	}
+
+	wantContain := color.YellowString("v0.0.1") + " to " + color.GreenString("v1.9.1")
+	got := pkgInfo.CurrentToLatestStr()
+
+	if !strings.Contains(got, wantContain) {
+		t.Errorf("got: %v, want: %v", got, wantContain)
+	}
+}
+
 func TestPackage_VersionCheckResultStr_up_to_date(t *testing.T) {
 	pkgInfo := Package{
 		Name:       "foo",
@@ -811,6 +975,33 @@ func TestPackage_VersionCheckResultStr_not_up_to_date(t *testing.T) {
 
 	// Assert to contain the expected message
 	wantContain := "current: v0.0.1, latest: v1.9.1"
+	got := pkgInfo.VersionCheckResultStr()
+
+	if !strings.Contains(got, wantContain) {
+		t.Errorf("got: %v, want: %v", got, wantContain)
+	}
+}
+
+func TestPackage_VersionCheckResultStr_not_up_to_date_color(t *testing.T) {
+	oldNoColor := color.NoColor
+	color.NoColor = false
+	t.Cleanup(func() { color.NoColor = oldNoColor })
+
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		ModulePath: "github.com/dummy_name/dummy/foo",
+		Version: &Version{
+			Current: "v0.0.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.22.4",
+			Latest:  "go1.22.4",
+		},
+	}
+
+	wantContain := "current: " + color.YellowString("v0.0.1") + ", latest: " + color.GreenString("v1.9.1")
 	got := pkgInfo.VersionCheckResultStr()
 
 	if !strings.Contains(got, wantContain) {
@@ -863,5 +1054,108 @@ func TestPackage_VersionCheckResultStr_go_not_up_to_date(t *testing.T) {
 
 	if !strings.Contains(got, wantContain) {
 		t.Errorf("got: %v, want: %v", got, wantContain)
+	}
+}
+
+func TestPackage_VersionCheckResultStr_go_not_up_to_date_color(t *testing.T) {
+	oldNoColor := color.NoColor
+	color.NoColor = false
+	t.Cleanup(func() { color.NoColor = oldNoColor })
+
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		ModulePath: "github.com/dummy_name/dummy/foo",
+		Version: &Version{
+			Current: "v1.9.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.22.1",
+			Latest:  "go1.22.4",
+		},
+	}
+
+	wantContain := "current: " + color.YellowString("go1.22.1") + ", installed: " + color.GreenString("go1.22.4")
+	got := pkgInfo.VersionCheckResultStr()
+
+	if !strings.Contains(got, wantContain) {
+		t.Errorf("got: %v, want: %v", got, wantContain)
+	}
+}
+
+func TestPackage_CurrentToLatestStr_go_not_up_to_date(t *testing.T) {
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		Version: &Version{
+			Current: "v1.9.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.22.1",
+			Latest:  "go1.22.4",
+		},
+	}
+
+	got := pkgInfo.CurrentToLatestStr()
+	if !strings.Contains(got, "go1.22.1") || !strings.Contains(got, "go1.22.4") {
+		t.Errorf("expected go version range, got: %v", got)
+	}
+}
+
+func TestPackage_CurrentToLatestStr_both_not_up_to_date(t *testing.T) {
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		Version: &Version{
+			Current: "v0.0.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.22.1",
+			Latest:  "go1.22.4",
+		},
+	}
+
+	got := pkgInfo.CurrentToLatestStr()
+	if !strings.Contains(got, "v0.0.1") || !strings.Contains(got, "v1.9.1") {
+		t.Errorf("expected package version range, got: %v", got)
+	}
+	if !strings.Contains(got, "go1.22.1") || !strings.Contains(got, "go1.22.4") {
+		t.Errorf("expected go version range, got: %v", got)
+	}
+}
+
+func TestInstallMainOrMaster_mainFails_masterFails(t *testing.T) {
+	oldGoExe := goExe
+	defer func() { goExe = oldGoExe }()
+
+	// Use a command that will fail for both main and master
+	goExe = "false"
+
+	err := InstallMainOrMaster("github.com/example/tool")
+	if err == nil {
+		t.Fatal("expected error when both main and master fail")
+	}
+	if !strings.Contains(err.Error(), "cannot update with @master or @main") {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestVersionUpToDate_invalidVersion(t *testing.T) {
+	// invalid versions should return false
+	if versionUpToDate("not-a-version", "1.0.0") {
+		t.Error("invalid current version should return false")
+	}
+	if versionUpToDate("1.0.0", "not-a-version") {
+		t.Error("invalid available version should return false")
+	}
+}
+
+func TestGetPackageInformation_emptyList(t *testing.T) {
+	result := GetPackageInformation([]string{})
+	if result != nil {
+		t.Errorf("expected nil for empty list, got %v", result)
 	}
 }

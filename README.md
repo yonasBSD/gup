@@ -4,7 +4,6 @@
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 [![reviewdog](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml)
 ![Coverage](https://raw.githubusercontent.com/nao1215/octocovs-central-repo/main/badges/nao1215/gup/coverage.svg)
-[![gosec](https://github.com/nao1215/gup/actions/workflows/security.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/security.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nao1215/gup.svg)](https://pkg.go.dev/github.com/nao1215/gup)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nao1215/gup)](https://goreportcard.com/report/github.com/nao1215/gup)
 ![GitHub](https://img.shields.io/github/license/nao1215/gup)
@@ -18,6 +17,11 @@
 **gup** command update binaries installed by "go install" to the latest version. gup updates all binaries in parallel, so very fast. It also provides subcommands for manipulating binaries under \$GOPATH/bin (\$GOBIN). It is a cross-platform software that runs on Windows, Mac and Linux.
 
 If you are using oh-my-zsh, then gup has an alias set up. The alias is `gup - git pull --rebase`. Therefore, please make sure that the oh-my-zsh alias is disabled (e.g. $ \gup update).
+
+## Breaking change (v1.0.0)
+- The config file format changed from `gup.conf` to `gup.json`.
+- `gup.conf` is no longer read by `gup import`.
+- The update channel (`latest` / `main` / `master`) is stored per package in `gup.json`.
 
 
 ## Supported OS (unit testing with GitHub Actions)
@@ -80,10 +84,15 @@ Also works in combination with --dry-run
 $ gup update --exclude=gopls,golangci-lint    //--exclude or -e, this example will exclude 'gopls' and 'golangci-lint'
 ```
 
-### Update binaries with @main or @master
-If you want to update binaries with @master or @main, you can specify the -m or --master option.
+### Update binaries with @main, @master, or @latest
+If you want to control update source per binary, use the following options:
+- `--main` (`-m`): update by `@main` (fallback to `@master`)
+- `--master`: update by `@master`
+- `--latest`: update by `@latest`
+
+The selected channel is saved to `gup.json` and reused by future `gup update` runs.
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### List up command name with package path and version under $GOPATH/bin
@@ -133,27 +142,54 @@ If you want to update binaries, the following command.
            $ gup update mimixbox
 ```
 ### Export／Import subcommand
-You use the export／import subcommand if you want to install the same golang binaries across multiple systems. By default, export-subcommand exports the file to $XDG_CONFIG_HOME/gup/gup.conf. If you want to know [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html), see this link. After you have placed gup.conf in the same path hierarchy on another system, you execute import-subcommand. gup start the installation
-according to the contents of gup.conf.
+Use export/import when you want to install the same Go binaries across multiple systems.
+`gup.json` stores import path, binary version, and update channel (`latest` / `main` / `master`).
+`import` installs the exact version written in the file.
+
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
+```
+
+By default:
+- `gup export` writes to `$XDG_CONFIG_HOME/gup/gup.json`
+- `gup import` auto-detects config path in this order:
+  1) `$XDG_CONFIG_HOME/gup/gup.json` (if exists)
+  2) `./gup.json` (if exists)
+
+You can always override the path with `--file`.
 
 ```shell
 ※ Environments A (e.g. ubuntu)
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ Environments B (e.g. debian)
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-Alternatively, export subcommand print package information (it's same as gup.conf) that you want to export at STDOUT if you use --output option. import subcommand can also specify the gup.conf file path if you use --input option.
+`export` can print config content to STDOUT by `--output`. `import` can read a specific file by `--file`.
 ```shell
 ※ Environments A (e.g. ubuntu)
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ Environments B (e.g. debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### Generate man-pages (for linux, mac)
@@ -174,13 +210,16 @@ Generate /usr/share/man/man1/gup.1.gz
 ```
 
 ### Generate shell completion file (for bash, zsh, fish)
-completion subcommand generates shell completion files for bash, zsh, and fish. If the shell completion file does not exist in the system, the generation process will begin. To activate the completion feature, restart the shell.
+`completion` prints completion scripts to STDOUT when you pass a shell name.
+To install completion files into your user environment, use `--install`.
 
 ```shell
-$ gup completion
-create bash-completion file: /home/nao/.bash_completion
-create fish-completion file: /home/nao/.config/fish/completions/gup.fish
-create zsh-completion file: /home/nao/.zsh/completion/_gup
+$ gup completion bash > gup.bash
+$ gup completion zsh > _gup
+$ gup completion fish > gup.fish
+
+# Install files automatically to default user paths
+$ gup completion --install
 ```
 
 ### Desktop notification

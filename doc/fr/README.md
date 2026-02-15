@@ -4,7 +4,6 @@
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 [![reviewdog](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml)
 ![Coverage](https://raw.githubusercontent.com/nao1215/octocovs-central-repo/main/badges/nao1215/gup/coverage.svg)
-[![gosec](https://github.com/nao1215/gup/actions/workflows/security.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/security.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nao1215/gup.svg)](https://pkg.go.dev/github.com/nao1215/gup)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nao1215/gup)](https://goreportcard.com/report/github.com/nao1215/gup)
 ![GitHub](https://img.shields.io/github/license/nao1215/gup)
@@ -18,6 +17,11 @@
 La commande **gup** met à jour les binaires installés par "go install" vers la dernière version. gup met à jour tous les binaires en parallèle, donc très rapidement. Elle fournit également des sous-commandes pour manipuler les binaires sous \$GOPATH/bin (\$GOBIN). C'est un logiciel multiplateforme qui fonctionne sur Windows, Mac et Linux.
 
 Si vous utilisez oh-my-zsh, alors gup a un alias configuré. L'alias est `gup - git pull --rebase`. Par conséquent, assurez-vous que l'alias oh-my-zsh est désactivé (par exemple $ \gup update).
+
+## Changement incompatible (v1.0.0)
+- Le format de configuration est passé de `gup.conf` à `gup.json`.
+- `gup import` ne lit plus `gup.conf`.
+- Le canal de mise à jour par package (`latest` / `main` / `master`) est stocké dans `gup.json`.
 
 
 ## OS supportés (tests unitaires avec GitHub Actions)
@@ -80,10 +84,15 @@ Fonctionne aussi en combinaison avec --dry-run
 $ gup update --exclude=gopls,golangci-lint    //--exclude or -e, cet exemple exclura 'gopls' et 'golangci-lint'
 ```
 
-### Mettre à jour les binaires avec @main ou @master
-Si vous voulez mettre à jour les binaires avec @master ou @main, vous pouvez spécifier l'option -m ou --master.
+### Mettre à jour les binaires avec @main, @master ou @latest
+Si vous voulez contrôler la source de mise à jour par binaire, utilisez les options suivantes :
+- `--main` (`-m`) : met à jour avec `@main` (repli sur `@master` en cas d'échec)
+- `--master` : met à jour avec `@master`
+- `--latest` : met à jour avec `@latest`
+
+Le canal sélectionné est enregistré dans `gup.json` et réutilisé lors des prochaines exécutions de `gup update`.
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### Lister le nom de commande avec le chemin de package et la version sous $GOPATH/bin
@@ -133,27 +142,54 @@ If you want to update binaries, the following command.
            $ gup update mimixbox
 ```
 ### Sous-commandes Export／Import
-Vous utilisez les sous-commandes export／import si vous voulez installer les mêmes binaires golang sur plusieurs systèmes. Par défaut, la sous-commande export exporte le fichier vers $XDG_CONFIG_HOME/gup/gup.conf. Si vous voulez connaître la [XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html), consultez ce lien. Après avoir placé gup.conf dans la même hiérarchie de chemins sur un autre système, vous exécutez la sous-commande import. gup commence l'installation
-selon le contenu de gup.conf.
+Utilisez export/import si vous voulez installer les mêmes binaires golang sur plusieurs systèmes.
+`gup.json` stocke l'import path, la version du binaire et le canal de mise à jour (`latest` / `main` / `master`).
+`import` installe exactement la version écrite dans le fichier.
+
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
+```
+
+Par défaut :
+- `gup export` écrit dans `$XDG_CONFIG_HOME/gup/gup.json`
+- `gup import` détecte automatiquement le chemin du fichier dans cet ordre :
+  1) `$XDG_CONFIG_HOME/gup/gup.json` (s'il existe)
+  2) `./gup.json` (s'il existe)
+
+Vous pouvez toujours forcer le chemin avec `--file`.
 
 ```shell
 ※ Environnement A (par exemple ubuntu)
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ Environnement B (par exemple debian)
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-Alternativement, la sous-commande export affiche les informations de package (c'est la même chose que gup.conf) que vous voulez exporter sur STDOUT si vous utilisez l'option --output. La sous-commande import peut aussi spécifier le chemin du fichier gup.conf si vous utilisez l'option --input.
+Alternativement, `export` peut afficher le contenu de `gup.json` sur STDOUT avec `--output`. `import` peut lire un fichier spécifique avec `--file`.
 ```shell
 ※ Environnement A (par exemple ubuntu)
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ Environnement B (par exemple debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### Générer les pages de manuel (pour linux, mac)

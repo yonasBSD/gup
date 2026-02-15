@@ -4,7 +4,6 @@
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 [![reviewdog](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml)
 ![Coverage](https://raw.githubusercontent.com/nao1215/octocovs-central-repo/main/badges/nao1215/gup/coverage.svg)
-[![gosec](https://github.com/nao1215/gup/actions/workflows/security.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/security.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nao1215/gup.svg)](https://pkg.go.dev/github.com/nao1215/gup)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nao1215/gup)](https://goreportcard.com/report/github.com/nao1215/gup)
 ![GitHub](https://img.shields.io/github/license/nao1215/gup)
@@ -18,6 +17,11 @@
 **gup** 명령어는 "go install"로 설치된 바이너리를 최신 버전으로 업데이트합니다. gup은 모든 바이너리를 병렬로 업데이트하므로 매우 빠릅니다. 또한 \$GOPATH/bin (\$GOBIN) 아래의 바이너리를 조작하기 위한 하위 명령어를 제공합니다. Windows, Mac, Linux에서 실행되는 크로스 플랫폼 소프트웨어입니다.
 
 oh-my-zsh를 사용하는 경우 gup에는 별칭이 설정되어 있습니다. 별칭은 `gup - git pull --rebase`입니다. 따라서 oh-my-zsh 별칭이 비활성화되어 있는지 확인하십시오(예: $ \gup update).
+
+## 브레이킹 체인지 (v1.0.0)
+- 설정 파일 형식이 `gup.conf`에서 `gup.json`으로 변경되었습니다.
+- `gup import`는 더 이상 `gup.conf`를 읽지 않습니다.
+- 패키지별 업데이트 채널(`latest` / `main` / `master`)이 `gup.json`에 저장됩니다.
 
 
 ## 지원되는 OS (GitHub Actions를 통한 단위 테스트)
@@ -80,10 +84,15 @@ update binary under $GOPATH/bin or $GOBIN
 $ gup update --exclude=gopls,golangci-lint    //--exclude 또는 -e, 이 예제는 'gopls'와 'golangci-lint'를 제외합니다
 ```
 
-### @main 또는 @master로 바이너리 업데이트
-@master 또는 @main으로 바이너리를 업데이트하려면 -m 또는 --master 옵션을 지정할 수 있습니다.
+### @main, @master, @latest로 바이너리 업데이트
+바이너리별로 업데이트 소스를 제어하려면 다음 옵션을 사용하세요.
+- `--main` (`-m`): `@main`으로 업데이트 (실패 시 `@master`로 폴백)
+- `--master`: `@master`로 업데이트
+- `--latest`: `@latest`로 업데이트
+
+선택한 채널은 `gup.json`에 저장되며 이후 `gup update` 실행 시 재사용됩니다.
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### $GOPATH/bin 아래의 명령어 이름을 패키지 경로 및 버전과 함께 나열
@@ -133,26 +142,53 @@ If you want to update binaries, the following command.
           $ gup update mimixbox
 ```
 ### Export／Import 하위 명령어
-여러 시스템에서 동일한 golang 바이너리를 설치하려면 export／import 하위 명령어를 사용합니다. 기본적으로 export 하위 명령어는 파일을 $XDG_CONFIG_HOME/gup/gup.conf로 내보냅니다. [XDG 기본 디렉터리 사양](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)에 대해 알고 싶다면 이 링크를 참조하세요. 다른 시스템의 동일한 경로 계층에 gup.conf를 배치한 후 import 하위 명령어를 실행합니다. gup은 gup.conf의 내용에 따라 설치를 시작합니다.
+여러 시스템에서 동일한 golang 바이너리를 설치하려면 export／import 하위 명령어를 사용합니다.
+`gup.json`은 import path, 바이너리 버전, 업데이트 채널(`latest` / `main` / `master`)을 저장하며 `import`는 파일에 기록된 버전을 그대로 설치합니다.
+
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
+```
+
+기본 동작:
+- `gup export`는 `$XDG_CONFIG_HOME/gup/gup.json`에 기록합니다.
+- `gup import`는 다음 순서로 설정 파일을 자동 탐지합니다.
+  1) `$XDG_CONFIG_HOME/gup/gup.json` (존재하는 경우)
+  2) `./gup.json` (존재하는 경우)
+
+`--file` 옵션으로 읽기/쓰기 파일 경로를 명시적으로 지정할 수 있습니다.
 
 ```shell
 ※ 환경 A (예: ubuntu)
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ 환경 B (예: debian)
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-또는 export 하위 명령어는 --output 옵션을 사용하면 내보내려는 패키지 정보(gup.conf와 동일)를 STDOUT에 출력합니다. import 하위 명령어도 --input 옵션을 사용하면 gup.conf 파일 경로를 지정할 수 있습니다.
+또는 export 하위 명령어는 `--output` 옵션으로 `gup.json`과 동일한 내용을 STDOUT에 출력할 수 있습니다. import 하위 명령어는 `--file` 옵션으로 읽을 파일 경로를 지정할 수 있습니다.
 ```shell
 ※ 환경 A (예: ubuntu)
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ 환경 B (예: debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### man 페이지 생성 (linux, mac용)

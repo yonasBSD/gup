@@ -28,6 +28,9 @@ gup is a cross-platform software that runs on Windows, Mac and Linux.
 If you are using oh-my-zsh, then gup has an alias set up. The alias
 is gup - git pull --rebase. Therefore, please make sure that the
 oh-my-zsh alias is disabled (e.g. $ \gup update).
+
+If you find gup useful, please consider sponsoring the project:
+  https://github.com/sponsors/nao1215
 `,
 	}
 	cmd.CompletionOptions.DisableDefaultCmd = true

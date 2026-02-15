@@ -10,7 +10,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/fatih/color"
 	"github.com/hashicorp/go-version"
@@ -20,6 +22,18 @@ import (
 )
 
 const unknown = "unknown"
+
+// UpdateChannel is the update source channel for go install.
+type UpdateChannel string
+
+const (
+	// UpdateChannelLatest updates by @latest.
+	UpdateChannelLatest UpdateChannel = "latest"
+	// UpdateChannelMain updates by @main (and fallback to @master if main is missing).
+	UpdateChannelMain UpdateChannel = "main"
+	// UpdateChannelMaster updates by @master.
+	UpdateChannelMaster UpdateChannel = "master"
+)
 
 // Internal variables to mock/monkey-patch behaviors in tests.
 var (
@@ -56,6 +70,8 @@ type Package struct {
 	Version *Version
 	// GoVersion stores version of Go toolchain
 	GoVersion *Version
+	// UpdateChannel stores preferred update channel.
+	UpdateChannel UpdateChannel
 }
 
 // Version is package version information.
@@ -74,6 +90,21 @@ func NewVersion() *Version {
 	}
 }
 
+// NormalizeUpdateChannel normalizes a user/config value into a valid channel.
+// Unknown or blank values are treated as "latest".
+func NormalizeUpdateChannel(channel string) UpdateChannel {
+	switch strings.ToLower(strings.TrimSpace(channel)) {
+	case string(UpdateChannelMain):
+		return UpdateChannelMain
+	case string(UpdateChannelMaster):
+		return UpdateChannelMaster
+	case string(UpdateChannelLatest):
+		return UpdateChannelLatest
+	default:
+		return UpdateChannelLatest
+	}
+}
+
 // SetLatestVer set package latest version.
 func (p *Package) SetLatestVer() {
 	p.Version.Latest = GetPackageVersion(p.Name)
@@ -86,13 +117,15 @@ func (p *Package) CurrentToLatestStr() string {
 	}
 	var ret string
 	if p.Version.Current != p.Version.Latest {
-		ret += color.GreenString(p.Version.Current) + " to " + color.YellowString(p.Version.Latest)
+		currentVer, latestVer := colorVersionPair(p.Version.Current, p.Version.Latest, "v")
+		ret += currentVer + " to " + latestVer
 	}
 	if p.GoVersion.Current != p.GoVersion.Latest {
 		if len(ret) != 0 {
 			ret += ", "
 		}
-		ret += color.GreenString(p.GoVersion.Current) + " to " + color.YellowString(p.GoVersion.Latest)
+		currentGo, latestGo := colorVersionPair(p.GoVersion.Current, p.GoVersion.Latest, "go")
+		ret += currentGo + " to " + latestGo
 	}
 	return ret
 }
@@ -103,29 +136,42 @@ func (p *Package) VersionCheckResultStr() string {
 		return "Already up-to-date: " + color.GreenString(p.Version.Current) + " / " + color.GreenString(p.GoVersion.Current)
 	}
 	var ret string
-	// TODO: yellow only if latest > current
+	currentVer, latestVer := colorVersionPair(p.Version.Current, p.Version.Latest, "v")
 	if p.Version.Current == p.Version.Latest {
-		ret += color.GreenString(p.Version.Current)
+		ret += currentVer
 	} else {
-		ret += "current: " + color.GreenString(p.Version.Current) + ", latest: "
-		if p.IsPackageUpToDate() {
-			ret += color.GreenString(p.Version.Latest)
-		} else {
-			ret += color.YellowString(p.Version.Latest)
-		}
+		ret += "current: " + currentVer + ", latest: " + latestVer
 	}
 	ret += " / "
+	currentGo, latestGo := colorVersionPair(p.GoVersion.Current, p.GoVersion.Latest, "go")
 	if p.GoVersion.Current == p.GoVersion.Latest {
-		ret += color.GreenString(p.GoVersion.Current)
+		ret += currentGo
 	} else {
-		ret += "current: " + color.GreenString(p.GoVersion.Current) + ", installed: "
-		if p.IsGoUpToDate() {
-			ret += color.GreenString(p.GoVersion.Latest)
-		} else {
-			ret += color.YellowString(p.GoVersion.Latest)
-		}
+		ret += "current: " + currentGo + ", installed: " + latestGo
 	}
 	return ret
+}
+
+func colorVersionPair(current, latest, prefix string) (string, string) {
+	currentUpToDate := versionUpToDate(
+		strings.TrimPrefix(current, prefix),
+		strings.TrimPrefix(latest, prefix),
+	)
+	latestUpToDate := versionUpToDate(
+		strings.TrimPrefix(latest, prefix),
+		strings.TrimPrefix(current, prefix),
+	)
+
+	switch {
+	case currentUpToDate && latestUpToDate:
+		return color.GreenString(current), color.GreenString(latest)
+	case currentUpToDate:
+		return color.GreenString(current), color.YellowString(latest)
+	case latestUpToDate:
+		return color.YellowString(current), color.GreenString(latest)
+	default:
+		return color.YellowString(current), color.YellowString(latest)
+	}
 }
 
 // IsPackageUpToDate checks if the Package (set by the package author) version is up to date.
@@ -182,6 +228,7 @@ func (gp *GoPaths) StartDryRunMode() error {
 	if err != nil {
 		return err
 	}
+	gp.TmpPath = tmpDir
 
 	switch {
 	case gp.GOBIN != "":
@@ -253,15 +300,15 @@ func CanUseGoCmd() error {
 
 // InstallLatest execute "$ go install <importPath>@latest"
 func InstallLatest(importPath string) error {
-	return install(importPath, "latest")
+	return Install(importPath, "latest")
 }
 
 // InstallMainOrMaster execute "$ go install <importPath>@main" or "$ go install <importPath>@master"
 func InstallMainOrMaster(importPath string) error {
-	mainErr := install(importPath, "main")
+	mainErr := Install(importPath, "main")
 	if mainErr != nil {
 		// Previous error is "invalid version: unknown revision main". Not return this error.
-		masterErr := install(importPath, "master")
+		masterErr := Install(importPath, "master")
 		if masterErr == nil {
 			return nil
 		}
@@ -276,8 +323,8 @@ func InstallMainOrMaster(importPath string) error {
 	return nil
 }
 
-// install execute "$ go install <importPath>@<version>"
-func install(importPath, version string) error {
+// Install executes "$ go install <importPath>@<version>".
+func Install(importPath, version string) error {
 	if importPath == "command-line-arguments" {
 		return errors.New("is devel-binary copied from local environment")
 	}
@@ -295,9 +342,12 @@ func install(importPath, version string) error {
 
 // GetLatestVer execute "$ go list -m -f {{.Version}} <importPath>@latest"
 func GetLatestVer(modulePath string) (string, error) {
-	out, err := exec.CommandContext(context.Background(), goExe, "list", "-m", "-f", "{{.Version}}", modulePath+"@latest").Output() //#nosec
+	var stderr bytes.Buffer
+	cmd := exec.CommandContext(context.Background(), goExe, "list", "-m", "-f", "{{.Version}}", modulePath+"@latest") //#nosec
+	cmd.Stderr = &stderr
+	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("can't check %s:\n%w", modulePath, err)
+		return "", fmt.Errorf("can't check %s:\n%s", modulePath, stderr.String())
 	}
 	return strings.TrimRight(string(out), "\n"), nil
 }
@@ -369,32 +419,71 @@ func IsStdCmd(importPath string) bool {
 }
 
 // GetPackageInformation return golang package information.
+// Binary info is read in parallel using a worker pool to speed up initial scanning.
 func GetPackageInformation(binList []string) []Package {
-	pkgs := []Package{}
 	goVer, err := GetInstalledGoVersion()
 	if err != nil {
 		goVer = unknown
 	}
-	for _, v := range binList {
-		info, err := buildinfo.ReadFile(v)
-		if err != nil {
-			print.Warn(err)
-			continue
+
+	if len(binList) == 0 {
+		return nil
+	}
+
+	type indexedPkg struct {
+		pkg Package
+		ok  bool
+	}
+
+	numWorkers := runtime.NumCPU()
+	if numWorkers > len(binList) {
+		numWorkers = len(binList)
+	}
+
+	results := make([]indexedPkg, len(binList))
+	jobs := make(chan int, len(binList))
+	var wg sync.WaitGroup
+
+	for w := 0; w < numWorkers; w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := range jobs {
+				v := binList[i]
+				info, err := buildinfo.ReadFile(v)
+				if err != nil {
+					print.Warn(err)
+					continue
+				}
+				if IsStdCmd(info.Path) {
+					continue
+				}
+				pkg := Package{
+					Name:       filepath.Base(v),
+					ImportPath: info.Path,
+					ModulePath: info.Main.Path,
+					Version:    NewVersion(),
+					GoVersion:  NewVersion(),
+				}
+				pkg.Version.Current = info.Main.Version
+				pkg.GoVersion.Current, _, _ = strings.Cut(info.GoVersion, " ")
+				pkg.GoVersion.Latest = goVer
+				results[i] = indexedPkg{pkg: pkg, ok: true}
+			}
+		}()
+	}
+
+	for i := range binList {
+		jobs <- i
+	}
+	close(jobs)
+	wg.Wait()
+
+	pkgs := make([]Package, 0, len(binList))
+	for _, r := range results {
+		if r.ok {
+			pkgs = append(pkgs, r.pkg)
 		}
-		if IsStdCmd(info.Path) {
-			continue
-		}
-		pkg := Package{
-			Name:       filepath.Base(v),
-			ImportPath: info.Path,
-			ModulePath: info.Main.Path,
-			Version:    NewVersion(),
-			GoVersion:  NewVersion(),
-		}
-		pkg.Version.Current = info.Main.Version
-		pkg.GoVersion.Current, _, _ = strings.Cut(info.GoVersion, " ")
-		pkg.GoVersion.Latest = goVer
-		pkgs = append(pkgs, pkg)
 	}
 	return pkgs
 }
@@ -413,6 +502,8 @@ func GetPackageVersion(cmdName string) string {
 }
 
 var goVersionRegex = regexp.MustCompile(`(^|\s)(go[1-9]\S+)`)
+var moduleDeclaresPathRegex = regexp.MustCompile(`(?m)module declares its path as:\s*(\S+)`)
+var requiredAsPathRegex = regexp.MustCompile(`(?m)but was required as:\s*(\S+)`)
 
 // GetInstalledGoVersion return installed go version.
 func GetInstalledGoVersion() (string, error) {
@@ -431,4 +522,28 @@ func GetInstalledGoVersion() (string, error) {
 	}
 
 	return "", fmt.Errorf("can't find go version string in %q", strings.TrimSpace(stdout.String()))
+}
+
+// DetectModulePathMismatch detects module path mismatch errors from go command output.
+// It returns:
+//   - declaredPath: module path declared in go.mod
+//   - requiredPath: module path that was originally required
+//   - ok: true when both paths are detected and they differ
+func DetectModulePathMismatch(err error) (declaredPath, requiredPath string, ok bool) {
+	if err == nil {
+		return "", "", false
+	}
+
+	declared := moduleDeclaresPathRegex.FindStringSubmatch(err.Error())
+	required := requiredAsPathRegex.FindStringSubmatch(err.Error())
+	if len(declared) < 2 || len(required) < 2 {
+		return "", "", false
+	}
+
+	declaredPath = strings.TrimSpace(declared[1])
+	requiredPath = strings.TrimSpace(required[1])
+	if declaredPath == "" || requiredPath == "" || declaredPath == requiredPath {
+		return "", "", false
+	}
+	return declaredPath, requiredPath, true
 }

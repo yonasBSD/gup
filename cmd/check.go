@@ -77,6 +77,7 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
 	var mu sync.Mutex
 	needUpdatePkgs := []goutil.Package{}
+	verCache := newLatestVerCache()
 
 	print.Info("check binary under $GOPATH/bin or $GOBIN")
 
@@ -86,17 +87,30 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 			err = fmt.Errorf(" %s is not installed by 'go install' (or permission incorrect)", p.Name)
 		} else {
 			var latestVer string
-			latestVer, err = goutil.GetLatestVer(p.ModulePath)
+			modulePathChanged := false
+			latestVer, err = verCache.get(p.ModulePath)
 			if err != nil {
-				err = fmt.Errorf(" %s %w", p.Name, err)
+				newPkg, changed := resolveModulePathChange(p, err)
+				if !changed {
+					err = fmt.Errorf(" %s %w", p.Name, err)
+				} else {
+					modulePathChanged = true
+					p = newPkg
+					latestVer, err = verCache.get(p.ModulePath)
+					if err != nil {
+						err = fmt.Errorf(" %s %w", p.Name, err)
+					}
+				}
 			}
-			p.Version.Latest = latestVer
+			if err == nil {
+				p.Version.Latest = latestVer
 
-			shouldUpdate := !p.IsPackageUpToDate() || (!ignoreGoUpdate && !p.IsGoUpToDate())
-			if shouldUpdate {
-				mu.Lock()
-				needUpdatePkgs = append(needUpdatePkgs, p)
-				mu.Unlock()
+				shouldUpdate := modulePathChanged || !p.IsPackageUpToDate() || (!ignoreGoUpdate && !p.IsGoUpToDate())
+				if shouldUpdate {
+					mu.Lock()
+					needUpdatePkgs = append(needUpdatePkgs, p)
+					mu.Unlock()
+				}
 			}
 		}
 

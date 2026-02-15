@@ -4,7 +4,6 @@
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 [![reviewdog](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml)
 ![Coverage](https://raw.githubusercontent.com/nao1215/octocovs-central-repo/main/badges/nao1215/gup/coverage.svg)
-[![gosec](https://github.com/nao1215/gup/actions/workflows/security.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/security.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nao1215/gup.svg)](https://pkg.go.dev/github.com/nao1215/gup)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nao1215/gup)](https://goreportcard.com/report/github.com/nao1215/gup)
 ![GitHub](https://img.shields.io/github/license/nao1215/gup)
@@ -18,6 +17,11 @@
 **gup** 命令将通过"go install"安装的二进制文件更新到最新版本。gup 并行更新所有二进制文件，因此非常快速。它还提供用于操作 \$GOPATH/bin (\$GOBIN) 下二进制文件的子命令。它是一个跨平台软件，可在 Windows、Mac 和 Linux 上运行。
 
 如果您正在使用 oh-my-zsh，那么 gup 设置了一个别名。该别名是 `gup - git pull --rebase`。因此，请确保禁用 oh-my-zsh 别名（例如 $ \gup update）。
+
+## 破坏性变更（v1.0.0）
+- 配置文件格式已从 `gup.conf` 变更为 `gup.json`。
+- `gup import` 不再读取 `gup.conf`。
+- 每个包的更新通道（`latest` / `main` / `master`）会保存在 `gup.json` 中。
 
 
 ## 支持的操作系统（通过 GitHub Actions 进行单元测试）
@@ -80,10 +84,15 @@ update binary under $GOPATH/bin or $GOBIN
 $ gup update --exclude=gopls,golangci-lint    //--exclude 或 -e，此示例将排除 'gopls' 和 'golangci-lint'
 ```
 
-### 使用 @main 或 @master 更新二进制文件
-如果您想使用 @master 或 @main 更新二进制文件，可以指定 -m 或 --master 选项。
+### 使用 @main、@master 或 @latest 更新二进制文件
+如果您想按二进制文件控制更新来源，可以使用以下选项：
+- `--main` (`-m`)：使用 `@main` 更新（失败时回退到 `@master`）
+- `--master`：使用 `@master` 更新
+- `--latest`：使用 `@latest` 更新
+
+所选通道会保存到 `gup.json`，并在后续 `gup update` 中复用。
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### 列出 $GOPATH/bin 下的命令名称及其包路径和版本
@@ -133,26 +142,54 @@ If you want to update binaries, the following command.
           $ gup update mimixbox
 ```
 ### 导出/导入子命令
-如果您想在多个系统中安装相同的 golang 二进制文件，您可以使用 export/import 子命令。默认情况下，export 子命令将文件导出到 $XDG_CONFIG_HOME/gup/gup.conf。如果您想了解 [XDG 基目录规范](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)，请查看此链接。在您将 gup.conf 放置在另一个系统上的相同路径层次结构中之后，您执行 import 子命令。gup 根据 gup.conf 的内容开始安装。
+如果您想在多个系统中安装相同的 golang 二进制文件，可以使用 export/import 子命令。
+`gup.json` 保存 import path、二进制版本和更新通道（`latest` / `main` / `master`）。
+`import` 会按文件中记录的版本进行安装。
+
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
+```
+
+默认行为：
+- `gup export` 写入 `$XDG_CONFIG_HOME/gup/gup.json`
+- `gup import` 按以下顺序自动检测配置文件路径：
+  1) `$XDG_CONFIG_HOME/gup/gup.json`（存在时）
+  2) `./gup.json`（存在时）
+
+您也可以通过 `--file` 显式指定路径。
 
 ```shell
 ※ 环境 A（例如 ubuntu）
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ 环境 B（例如 debian）
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-或者，如果您使用 --output 选项，export 子命令会在 STDOUT 打印您想要导出的包信息（与 gup.conf 相同）。如果您使用 --input 选项，import 子命令也可以指定 gup.conf 文件路径。
+或者，`export` 可通过 `--output` 将 `gup.json` 内容输出到 STDOUT，`import` 可通过 `--file` 指定读取文件。
 ```shell
 ※ 环境 A（例如 ubuntu）
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ 环境 B（例如 debian）
-$ gup import --input=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### 生成手册页（适用于 linux、mac）

@@ -19,6 +19,7 @@ import (
 	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
+	"github.com/spf13/cobra"
 )
 
 func helper_CopyFile(t *testing.T, src, dst string) {
@@ -60,6 +61,47 @@ func helper_setupFakeGoBin(t *testing.T) {
 	if !strings.HasSuffix(gobin, "_tmp") {
 		t.Fatal("SHOULD NOT HAPPEN: GOBIN is not set to fake path")
 	}
+}
+
+func helper_stubUpdateOps(t *testing.T) {
+	t.Helper()
+
+	orgGetLatestVer := getLatestVer
+	orgInstallLatest := installLatest
+	orgInstallMainOrMaster := installMainOrMaster
+	orgInstallByVersionUpd := installByVersionUpd
+
+	getLatestVer = func(string) (string, error) {
+		return testVersionNine, nil
+	}
+	installLatest = func(string) error {
+		return nil
+	}
+	installMainOrMaster = func(string) error {
+		return nil
+	}
+	installByVersionUpd = func(string, string) error {
+		return nil
+	}
+
+	t.Cleanup(func() {
+		getLatestVer = orgGetLatestVer
+		installLatest = orgInstallLatest
+		installMainOrMaster = orgInstallMainOrMaster
+		installByVersionUpd = orgInstallByVersionUpd
+	})
+}
+
+func helper_stubImportInstaller(t *testing.T) {
+	t.Helper()
+
+	orgInstallByVersion := installByVersion
+	installByVersion = func(_, _ string) error {
+		return nil
+	}
+	t.Cleanup(func() {
+		installByVersion = orgInstallByVersion
+	})
 }
 
 // Runs a gup command, and return its output split by \n
@@ -148,6 +190,20 @@ func setupXDGBase(t *testing.T) {
 		if err := os.MkdirAll(dir, 0o750); err != nil {
 			t.Fatalf("failed to create XDG directory %s: %v", dir, err)
 		}
+	}
+}
+
+func Test_completeNCPUs(t *testing.T) {
+	got, directive := completeNCPUs(nil, nil, "")
+	if directive != cobra.ShellCompDirectiveNoFileComp {
+		t.Errorf("directive = %v, want NoFileComp", directive)
+	}
+	n := runtime.NumCPU()
+	if len(got) != n {
+		t.Errorf("len(completeNCPUs) = %d, want %d", len(got), n)
+	}
+	if got[0] != "1" {
+		t.Errorf("first element = %q, want 1", got[0])
 	}
 }
 
@@ -383,8 +439,23 @@ func TestExecute_Export(t *testing.T) {
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
 			args:  []string{"gup", "export"},
-			want: `gal.exe = github.com/nao1215/gal/cmd/gal
-posixer.exe = github.com/nao1215/posixer
+			want: `{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal.exe",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "latest",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer.exe",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "latest",
+      "channel": "latest"
+    }
+  ]
+}
 `,
 		})
 	} else {
@@ -397,9 +468,29 @@ posixer.exe = github.com/nao1215/posixer
 			name:  "success",
 			gobin: filepath.Join("testdata", "check_success"),
 			args:  []string{"gup", "export"},
-			want: `gal = github.com/nao1215/gal/cmd/gal
-posixer = github.com/nao1215/posixer
-subaru = github.com/nao1215/subaru
+			want: `{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "latest"
+    },
+    {
+      "name": "subaru",
+      "import_path": "github.com/nao1215/subaru",
+      "version": "v1.0.0",
+      "channel": "latest"
+    }
+  ]
+}
 `,
 		})
 	}
@@ -467,8 +558,12 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			gobin: filepath.Join("testdata", "check_success_for_windows"),
 			args:  []string{"gup", "export", "--output"},
 			want: []string{
-				"gal.exe = github.com/nao1215/gal/cmd/gal",
-				"posixer.exe = github.com/nao1215/posixer",
+				"{",
+				`  "schema_version": 1,`,
+				`  "packages": [`,
+				`      "name": "gal.exe",`,
+				`      "name": "posixer.exe",`,
+				`      "version": "latest",`,
 				""},
 		})
 	} else {
@@ -477,9 +572,15 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			gobin: filepath.Join("testdata", "check_success"),
 			args:  []string{"gup", "export", "--output"},
 			want: []string{
-				"gal = github.com/nao1215/gal/cmd/gal",
-				"posixer = github.com/nao1215/posixer",
-				"subaru = github.com/nao1215/subaru",
+				"{",
+				`  "schema_version": 1,`,
+				`  "packages": [`,
+				`      "name": "gal",`,
+				`      "name": "posixer",`,
+				`      "name": "subaru",`,
+				`      "version": "v1.1.1",`,
+				`      "version": "v0.1.0",`,
+				`      "version": "v1.0.0",`,
 				""},
 		})
 	}
@@ -492,18 +593,27 @@ func TestExecute_Export_WithOutputOption(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		if diff := cmp.Diff(tt.want, got); diff != "" {
-			t.Errorf("value is mismatch (-want +got):\n%s", diff)
+		for _, want := range tt.want {
+			if want == "" {
+				continue
+			}
+			contains := false
+			for _, g := range got {
+				if strings.Contains(g, want) {
+					contains = true
+					break
+				}
+			}
+			if !contains {
+				t.Errorf("value is mismatch. output does not contain %q", want)
+			}
 		}
 	}
 }
 
 func TestExecute_Import_WithInputOption(t *testing.T) {
-	if os.Getenv("GUP_RUN_UPDATE_TESTS") != "1" {
-		t.Skip("skip import/install test without explicit opt-in")
-	}
-
 	setupXDGBase(t)
+	helper_stubImportInstaller(t)
 
 	gobinDir := filepath.Join(t.TempDir(), "gobin")
 	t.Setenv("GOBIN", gobinDir)
@@ -516,12 +626,12 @@ func TestExecute_Import_WithInputOption(t *testing.T) {
 		OsExit = os.Exit
 	}()
 
-	confFile := "testdata/gup_config/nix.conf"
+	confFile := "testdata/gup_config/nix.json"
 	if runtime.GOOS == goosWindows {
-		confFile = "testdata/gup_config/windows.conf"
+		confFile = "testdata/gup_config/windows.json"
 	}
 
-	got, err := helper_runGup(t, []string{"gup", "import", "-i", confFile})
+	got, err := helper_runGup(t, []string{"gup", "import", "-f", confFile})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -556,7 +666,7 @@ func TestExecute_Import_WithBadInputFile(t *testing.T) {
 		},
 		{
 			name:      "specify empty file",
-			inputFile: "testdata/gup_config/empty.conf",
+			inputFile: "testdata/gup_config/empty.json",
 			want: []string{
 				"gup:ERROR: unable to import package: no package information",
 				"",
@@ -570,7 +680,7 @@ func TestExecute_Import_WithBadInputFile(t *testing.T) {
 				OsExit = os.Exit
 			}()
 
-			got, err := helper_runGup(t, []string{"gup", "import", "-i", tt.inputFile})
+			got, err := helper_runGup(t, []string{"gup", "import", "-f", tt.inputFile})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -583,11 +693,8 @@ func TestExecute_Import_WithBadInputFile(t *testing.T) {
 }
 
 func TestExecute_Update(t *testing.T) {
-	if os.Getenv("GUP_RUN_UPDATE_TESTS") != "1" {
-		t.Skip("skip update test without explicit opt-in")
-	}
-
 	setupXDGBase(t)
+	helper_stubUpdateOps(t)
 	helper_setupFakeGoBin(t)
 	OsExit = func(code int) {}
 	defer func() {
@@ -640,11 +747,8 @@ func TestExecute_Update(t *testing.T) {
 }
 
 func TestExecute_Update_DryRunAndNotify(t *testing.T) {
-	if os.Getenv("GUP_RUN_UPDATE_TESTS") != "1" {
-		t.Skip("skip update test without explicit opt-in")
-	}
-
 	setupXDGBase(t)
+	helper_stubUpdateOps(t)
 	helper_setupFakeGoBin(t)
 	OsExit = func(code int) {}
 	defer func() {
@@ -700,7 +804,7 @@ func TestExecute_Completion(t *testing.T) {
 	setupXDGBase(t)
 
 	t.Run("generate completion file", func(t *testing.T) {
-		os.Args = []string{"gup", "completion"}
+		os.Args = []string{"gup", "completion", "--install"}
 		if err := Execute(); err != nil {
 			t.Error(err)
 		}

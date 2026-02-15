@@ -4,7 +4,6 @@
 [![Mentioned in Awesome Go](https://awesome.re/mentioned-badge.svg)](https://github.com/avelino/awesome-go)
 [![reviewdog](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/reviewdog.yml)
 ![Coverage](https://raw.githubusercontent.com/nao1215/octocovs-central-repo/main/badges/nao1215/gup/coverage.svg)
-[![gosec](https://github.com/nao1215/gup/actions/workflows/security.yml/badge.svg)](https://github.com/nao1215/gup/actions/workflows/security.yml)
 [![Go Reference](https://pkg.go.dev/badge/github.com/nao1215/gup.svg)](https://pkg.go.dev/github.com/nao1215/gup)
 [![Go Report Card](https://goreportcard.com/badge/github.com/nao1215/gup)](https://goreportcard.com/report/github.com/nao1215/gup)
 ![GitHub](https://img.shields.io/github/license/nao1215/gup)
@@ -18,6 +17,11 @@
 **gup** コマンドは、"go install" でインストールしたバイナリを最新版に更新します。gupはすべてのバイナリを並列で更新するため、非常に高速です。また、\$GOPATH/bin (\$GOBIN) 配下のバイナリを操作するためのサブコマンドも提供しています。Windows、Mac、Linuxで動作するクロスプラットフォーム対応のソフトウェアです。
 
 oh-my-zshを使用している場合、gupにはエイリアスが設定されています。そのエイリアスは `gup - git pull --rebase` です。そのため、oh-my-zshのエイリアスを無効にして使用してください（例：$ \gup update）。
+
+## 破壊的変更（v1.0.0）
+- 設定ファイル形式は `gup.conf` から `gup.json` に変更されました。
+- `gup import` は `gup.conf` を読み込みません。
+- `gup.json` にはパッケージごとの更新チャネル（`latest` / `main` / `master`）を保存します。
 
 
 ## サポート対象OS（GitHub Actionsでユニットテスト実施）
@@ -80,10 +84,15 @@ update binary under $GOPATH/bin or $GOBIN
 $ gup update --exclude=gopls,golangci-lint    //--exclude または -e、この例では 'gopls' と 'golangci-lint' を除外します
 ```
 
-### @mainまたは@masterでバイナリを更新
-@masterや@mainでバイナリを更新したい場合は、-mまたは--masterオプションを指定できます。
+### @main、@master、@latestでバイナリを更新
+バイナリごとに更新元を指定したい場合、以下のオプションを使用します。
+- `--main` (`-m`): `@main` で更新（失敗時は `@master` を試行）
+- `--master`: `@master` で更新
+- `--latest`: `@latest` で更新
+
+選択したチャネルは `gup.json` に保存され、次回以降の `gup update` でも再利用されます。
 ```shell
-$ gup update --main=gup,lazygit,sqly
+$ gup update --main=gup,lazygit --master=sqly --latest=air
 ```
 
 ### $GOPATH/bin配下のコマンド名とパッケージパス、バージョンを一覧表示
@@ -133,26 +142,53 @@ If you want to update binaries, the following command.
           $ gup update mimixbox
 ```
 ### Export／Importサブコマンド
-複数のシステム間で同じGolangバイナリをインストールしたい場合は、export／importサブコマンドを使用します。デフォルトで、exportサブコマンドは$XDG_CONFIG_HOME/gup/gup.confにファイルをエクスポートします。[XDG Base Directory Specification](https://specifications.freedesktop.org/basedir-spec/basedir-spec-latest.html)について知りたい場合は、このリンクを参照してください。別のシステムの同じパス階層にgup.confを配置した後、importサブコマンドを実行します。gupはgup.confの内容に従ってインストールを開始します。
+複数のシステム間で同じGolangバイナリをインストールしたい場合は、export／importサブコマンドを使用します。
+`gup.json` は import path、バイナリバージョン、更新チャネル（`latest` / `main` / `master`）を保存し、`import` はそのバージョンをそのままインストールします。
+
+```json
+{
+  "schema_version": 1,
+  "packages": [
+    {
+      "name": "gal",
+      "import_path": "github.com/nao1215/gal/cmd/gal",
+      "version": "v1.1.1",
+      "channel": "latest"
+    },
+    {
+      "name": "posixer",
+      "import_path": "github.com/nao1215/posixer",
+      "version": "v0.1.0",
+      "channel": "main"
+    }
+  ]
+}
+```
+
+デフォルトでは次の挙動です。
+- `gup export` は `$XDG_CONFIG_HOME/gup/gup.json` に書き出します。
+- `gup import` は設定ファイルを次の順で自動検出します。
+  1) `$XDG_CONFIG_HOME/gup/gup.json`（存在する場合）
+  2) `./gup.json`（存在する場合）
+
+`--file` を使えば、読み書きする設定ファイルパスを明示指定できます。
 
 ```shell
 ※ 環境A (例: ubuntu)
 $ gup export
-Export /home/nao/.config/gup/gup.conf
+Export /home/nao/.config/gup/gup.json
 
 ※ 環境B (例: debian)
-$ ls /home/nao/.config/gup/gup.conf
-/home/nao/.config/gup/gup.conf
 $ gup import
 ```
 
-また、exportサブコマンドは--outputオプションを使用すると、エクスポートしたいパッケージ情報（gup.confと同じ内容）をSTDOUTに出力できます。importサブコマンドも--inputオプションを使用してgup.confファイルパスを指定できます。
+また、exportサブコマンドは `--output` オプションを使用すると、`gup.json` と同じ内容をSTDOUTに出力できます。importサブコマンドは `--file` オプションを使用して読み込みファイルを指定できます。
 ```shell
 ※ 環境A (例: ubuntu)
-$ gup export --output > gup.conf
+$ gup export --output > gup.json
 
 ※ 環境B (例: debian)
-$ gup import --input=gup.conf
+$ gup import --file=gup.json
 ```
 
 ### manページの生成（LinuxとMac用）

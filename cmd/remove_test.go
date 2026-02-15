@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/nao1215/gup/internal/fileutil"
+	"github.com/spf13/cobra"
 )
 
 func Test_removeLoop(t *testing.T) {
@@ -136,6 +137,83 @@ func Test_removeLoop(t *testing.T) {
 
 			if tt.name == "delete cancel" && !fileutil.IsFile(dest) {
 				t.Errorf("input no, however posixer command is deleted")
+			}
+		})
+	}
+}
+
+func Test_removeLoop_rejectPathTraversal(t *testing.T) {
+	t.Parallel()
+
+	gobin := filepath.Join(t.TempDir(), "bin")
+	if err := os.MkdirAll(gobin, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	victim := filepath.Join(filepath.Dir(gobin), "victim")
+	if err := os.WriteFile(victim, []byte("dummy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := removeLoop(gobin, true, []string{"../victim"}); got != 1 {
+		t.Fatalf("removeLoop() = %v, want %v", got, 1)
+	}
+
+	if !fileutil.IsFile(victim) {
+		t.Fatalf("path traversal should not delete %s", victim)
+	}
+}
+
+func Test_remove_flagError(t *testing.T) {
+	t.Parallel()
+	cmd := &cobra.Command{}
+	// missing "force" flag
+	got := remove(cmd, []string{"tool"})
+	if got != 1 {
+		t.Errorf("remove() = %v, want 1", got)
+	}
+}
+
+func Test_remove_noArgs(t *testing.T) {
+	t.Parallel()
+	cmd := newRemoveCmd()
+	got := remove(cmd, []string{})
+	if got != 1 {
+		t.Errorf("remove() = %v, want 1 for no args", got)
+	}
+}
+
+func Test_removeLoop_forceNonExist(t *testing.T) {
+	t.Parallel()
+	gobin := t.TempDir()
+	got := removeLoop(gobin, true, []string{"nonexistent"})
+	if got != 1 {
+		t.Errorf("removeLoop() = %v, want 1 for non-existent binary", got)
+	}
+}
+
+func Test_isSafeBinaryName(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		input string
+		want  bool
+	}{
+		{name: "simple name", input: "mytool", want: true},
+		{name: "with extension", input: "mytool.exe", want: true},
+		{name: "empty", input: "", want: false},
+		{name: "whitespace only", input: "   ", want: false},
+		{name: "absolute path", input: "/usr/bin/tool", want: false},
+		{name: "forward slash", input: "sub/tool", want: false},
+		{name: "backslash", input: `sub\tool`, want: false},
+		{name: "parent traversal", input: "../escape", want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := isSafeBinaryName(tt.input)
+			if got != tt.want {
+				t.Errorf("isSafeBinaryName(%q) = %v, want %v", tt.input, got, tt.want)
 			}
 		})
 	}
