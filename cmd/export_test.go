@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -248,5 +249,44 @@ func Test_writeConfigFile(t *testing.T) {
 				t.Errorf("writeConfigFile() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func Test_writeConfigFile_atomicOnWriteError(t *testing.T) {
+	origWriteConfFile := writeConfFile
+	t.Cleanup(func() { writeConfFile = origWriteConfFile })
+
+	path := filepath.Join(t.TempDir(), "gup.json")
+	original := `{"schema_version":1,"packages":[]}` + "\n"
+	if err := os.WriteFile(path, []byte(original), 0o600); err != nil {
+		t.Fatalf("failed to seed original config: %v", err)
+	}
+
+	writeConfFile = func(w io.Writer, _ []goutil.Package) error {
+		if _, err := w.Write([]byte(`{"schema_version":1,`)); err != nil {
+			return err
+		}
+		return errors.New("forced write failure")
+	}
+
+	err := writeConfigFile(path, []goutil.Package{{Name: "dummy"}})
+	if err == nil {
+		t.Fatal("writeConfigFile() should return error")
+	}
+
+	got, readErr := os.ReadFile(filepath.Clean(path))
+	if readErr != nil {
+		t.Fatalf("failed to read config after failed write: %v", readErr)
+	}
+	if string(got) != original {
+		t.Fatalf("config should remain unchanged on failure: got=%q want=%q", string(got), original)
+	}
+
+	tmpFiles, globErr := filepath.Glob(filepath.Join(filepath.Dir(path), "gup.json.tmp-*"))
+	if globErr != nil {
+		t.Fatalf("failed to list temp files: %v", globErr)
+	}
+	if len(tmpFiles) != 0 {
+		t.Fatalf("temporary files should be cleaned up, found: %v", tmpFiles)
 	}
 }
