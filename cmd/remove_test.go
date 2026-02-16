@@ -213,6 +213,26 @@ func Test_removeLoop_windowsFallbackGoexe(t *testing.T) {
 	}
 }
 
+func Test_removeLoop_windowsSuffixCaseInsensitive(t *testing.T) {
+	origGOOS := GOOS
+	GOOS = goosWindows
+	t.Cleanup(func() { GOOS = origGOOS })
+	t.Setenv("GOEXE", ".exe")
+
+	gobin := t.TempDir()
+	binaryPath := filepath.Join(gobin, "gopls.EXE")
+	if err := os.WriteFile(binaryPath, []byte("dummy"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := removeLoop(gobin, true, []string{"gopls.EXE"}); got != 0 {
+		t.Fatalf("removeLoop() = %v, want 0", got)
+	}
+	if fileutil.IsFile(binaryPath) {
+		t.Fatalf("binary should be removed: %s", binaryPath)
+	}
+}
+
 func Test_isSafeBinaryName(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

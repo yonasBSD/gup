@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -95,12 +96,12 @@ func helper_stubUpdateOps(t *testing.T) {
 func helper_stubImportInstaller(t *testing.T) {
 	t.Helper()
 
-	orgInstallByVersion := installByVersion
-	installByVersion = func(_, _ string) error {
+	orgInstallByVersion := installByVersionCtx
+	installByVersionCtx = func(context.Context, string, string) error {
 		return nil
 	}
 	t.Cleanup(func() {
-		installByVersion = orgInstallByVersion
+		installByVersionCtx = orgInstallByVersion
 	})
 }
 

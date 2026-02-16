@@ -5,13 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/fileutil"
@@ -22,13 +20,9 @@ import (
 )
 
 var (
-	getLatestVer           = goutil.GetLatestVer                   //nolint:gochecknoglobals // swapped in tests
 	getLatestVerCtx        = goutil.GetLatestVerWithContext        //nolint:gochecknoglobals // swapped in tests
-	installLatest          = goutil.InstallLatest                  //nolint:gochecknoglobals // swapped in tests
 	installLatestCtx       = goutil.InstallLatestWithContext       //nolint:gochecknoglobals // swapped in tests
-	installMainOrMaster    = goutil.InstallMainOrMaster            //nolint:gochecknoglobals // swapped in tests
 	installMainOrMasterCtx = goutil.InstallMainOrMasterWithContext //nolint:gochecknoglobals // swapped in tests
-	installByVersionUpd    = goutil.Install                        //nolint:gochecknoglobals // swapped in tests
 	installByVersionUpdCtx = goutil.InstallWithContext             //nolint:gochecknoglobals // swapped in tests
 )
 
@@ -221,22 +215,18 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 	dryRunManager := goutil.NewGoPaths()
 	succeededPkgs := make([]goutil.Package, 0, len(pkgs))
 	renamedPkgs := map[string]string{} // oldName -> newName
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, cancel, signals := newSignalCancelContext()
+	defer stopSignalCancelContext(cancel, signals)
 
 	verCache := newLatestVerCache()
 
 	print.Info("update binary under $GOPATH/bin or $GOBIN")
-	signals := make(chan os.Signal, 1)
 	if dryRun {
 		if err := dryRunManager.StartDryRunMode(); err != nil {
 			print.Err(fmt.Errorf("can not change to dry run mode: %w", err))
 			notify.Warn("gup", "Can not change to dry run mode")
 			return 1, nil, nil
 		}
-		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP,
-			syscall.SIGQUIT, syscall.SIGABRT)
-		go catchSignal(signals, cancel)
 	}
 
 	updater := func(ctx context.Context, p goutil.Package) updateResult {
@@ -358,8 +348,6 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 			print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
 			return 1, nil, nil
 		}
-		signal.Stop(signals) // stop signal delivery before closing the channel
-		close(signals)       // unblock catchSignal goroutine
 	}
 
 	desktopNotifyIfNeeded(result, notification)
@@ -374,12 +362,6 @@ func desktopNotifyIfNeeded(result int, enable bool) {
 		} else {
 			notify.Warn("gup", "Some package can't update")
 		}
-	}
-}
-
-func catchSignal(c <-chan os.Signal, cancel context.CancelFunc) {
-	if _, ok := <-c; ok {
-		cancel()
 	}
 }
 
