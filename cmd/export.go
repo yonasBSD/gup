@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
@@ -35,8 +33,8 @@ apply it with 'gup import'.`,
 }
 
 func export(cmd *cobra.Command, _ []string) int {
-	if err := goutil.CanUseGoCmd(); err != nil {
-		print.Err(fmt.Errorf("%s: %w", "you didn't install golang", err))
+	if err := ensureGoCommandAvailable(); err != nil {
+		print.Err(err)
 		return 1
 	}
 

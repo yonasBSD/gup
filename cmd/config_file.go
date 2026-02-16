@@ -58,18 +58,49 @@ func writeConfigFile(path string, pkgs []goutil.Package) (err error) {
 func renameWithReplace(src, dst string) error {
 	if err := os.Rename(src, dst); err != nil {
 		// Windows cannot overwrite an existing file with os.Rename.
-		// Retry as remove-then-rename only when the destination likely exists.
+		// Retry via destination backup swap when the destination likely exists.
 		if !shouldRetryRenameWithReplace(err, dst) {
 			return err
 		}
-		if errRemove := os.Remove(dst); errRemove != nil {
-			return errRemove
-		}
-		if errRetry := os.Rename(src, dst); errRetry != nil {
-			return errRetry
-		}
+		return renameWithBackupSwap(src, dst)
 	}
 	return nil
+}
+
+func renameWithBackupSwap(src, dst string) error {
+	backupPath, err := prepareBackupPath(dst)
+	if err != nil {
+		return err
+	}
+
+	if err = os.Rename(dst, backupPath); err != nil {
+		return err
+	}
+	if err = os.Rename(src, dst); err != nil {
+		if restoreErr := os.Rename(backupPath, dst); restoreErr != nil {
+			return fmt.Errorf("can't restore original file %s after failed update: %w", dst, restoreErr)
+		}
+		return err
+	}
+
+	_ = os.Remove(backupPath)
+	return nil
+}
+
+func prepareBackupPath(dst string) (string, error) {
+	backupFile, err := os.CreateTemp(filepath.Dir(dst), filepath.Base(dst)+".bak-*")
+	if err != nil {
+		return "", err
+	}
+	backupPath := backupFile.Name()
+	if err := backupFile.Close(); err != nil {
+		_ = os.Remove(backupPath)
+		return "", err
+	}
+	if err := os.Remove(backupPath); err != nil {
+		return "", err
+	}
+	return backupPath, nil
 }
 
 func shouldRetryRenameWithReplace(renameErr error, dst string) bool {

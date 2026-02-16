@@ -65,7 +65,7 @@ func removeLoop(gobin string, force bool, target []string) int {
 		// In Windows, $GOEXE is set to the ".exe" extension.
 		// The user-specified command name (arguments) may not have an extension.
 		execSuffix := normalizeExecSuffix(GOOS, os.Getenv("GOEXE"))
-		if GOOS == goosWindows && !strings.HasSuffix(v, execSuffix) {
+		if GOOS == goosWindows && !hasSuffixFold(v, execSuffix) {
 			v += execSuffix
 		}
 		if !isSafeBinaryName(v) {
@@ -107,6 +107,13 @@ func normalizeExecSuffix(goos, goExe string) string {
 		return ".exe"
 	}
 	return goExe
+}
+
+func hasSuffixFold(s, suffix string) bool {
+	if len(s) < len(suffix) {
+		return false
+	}
+	return strings.EqualFold(s[len(s)-len(suffix):], suffix)
 }
 
 func isSafeBinaryName(name string) bool {

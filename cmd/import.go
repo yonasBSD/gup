@@ -4,11 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/signal"
 	"runtime"
 	"strings"
-	"syscall"
 
 	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/fileutil"
@@ -17,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var installByVersion = goutil.Install //nolint:gochecknoglobals // swapped in tests
+var installByVersionCtx = goutil.InstallWithContext //nolint:gochecknoglobals // swapped in tests
 
 func newImportCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -107,21 +104,17 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 	result := 0
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
 	dryRunManager := goutil.NewGoPaths()
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, cancel, signals := newSignalCancelContext()
+	defer stopSignalCancelContext(cancel, signals)
 
-	signals := make(chan os.Signal, 1)
 	if dryRun {
 		if err := dryRunManager.StartDryRunMode(); err != nil {
 			print.Err(fmt.Errorf("can not change to dry run mode: %w", err))
 			return 1
 		}
-		signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP,
-			syscall.SIGQUIT, syscall.SIGABRT)
-		go catchSignal(signals, cancel)
 	}
 
-	installer := func(_ context.Context, p goutil.Package) updateResult {
+	installer := func(ctx context.Context, p goutil.Package) updateResult {
 		ver, err := versionFromConfig(p)
 		if err != nil {
 			return updateResult{
@@ -144,7 +137,7 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 		}
 		p.Version.Current = ver
 
-		if err := installByVersion(p.ImportPath, ver); err != nil {
+		if err := installByVersionCtx(ctx, p.ImportPath, ver); err != nil {
 			return updateResult{
 				updated: false,
 				pkg:     p,
@@ -180,8 +173,6 @@ func installFromConfig(pkgs []goutil.Package, dryRun, notification bool, cpus in
 			print.Err(fmt.Errorf("can not change dry run mode to normal mode: %w", err))
 			return 1
 		}
-		signal.Stop(signals)
-		close(signals)
 	}
 
 	desktopNotifyIfNeeded(result, notification)

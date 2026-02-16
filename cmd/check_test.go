@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -441,7 +442,7 @@ func Test_doCheck_modulePathChanged(t *testing.T) {
 			},
 		},
 	}
-	got := doCheck(pkgs, 1, true)
+	got := doCheck(context.Background(), pkgs, 1, true)
 
 	pw.Close()
 	print.Stdout = orgStdout

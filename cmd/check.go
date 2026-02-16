@@ -67,10 +67,12 @@ func check(cmd *cobra.Command, args []string) int {
 		print.Err("unable to check package: no package information")
 		return 1
 	}
-	return doCheck(pkgs, cpus, ignoreGoUpdate)
+	ctx, cancel, signals := newSignalCancelContext()
+	defer stopSignalCancelContext(cancel, signals)
+	return doCheck(ctx, pkgs, cpus, ignoreGoUpdate)
 }
 
-func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
+func doCheck(ctx context.Context, pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 	result := 0
 	countFmt := "[%" + pkgDigit(pkgs) + "d/%" + pkgDigit(pkgs) + "d]"
 	var mu sync.Mutex
@@ -118,7 +120,7 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 		}
 	}
 
-	ch := forEachPackage(context.Background(), pkgs, cpus, checker)
+	ch := forEachPackage(ctx, pkgs, cpus, checker)
 
 	// print result
 	for i := 0; i < len(pkgs); i++ {

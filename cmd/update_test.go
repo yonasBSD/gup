@@ -26,6 +26,14 @@ import (
 const testVersionZero = "v0.0.0"
 const testVersionNine = "v9.9.9"
 
+//nolint:gochecknoglobals // legacy stubs used by tests via init bridge.
+var (
+	getLatestVer        = goutil.GetLatestVer
+	installLatest       = goutil.InstallLatest
+	installMainOrMaster = goutil.InstallMainOrMaster
+	installByVersionUpd = goutil.Install
+)
+
 //nolint:gochecknoinits
 func init() {
 	// Keep existing tests that stub legacy function variables working

@@ -3,6 +3,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"io"
 	"os"
@@ -216,14 +217,14 @@ func Test_runImport_jobsClamp(t *testing.T) {
 }
 
 func Test_installFromConfig_UseVersion(t *testing.T) {
-	originalInstaller := installByVersion
+	originalInstaller := installByVersionCtx
 	t.Cleanup(func() {
-		installByVersion = originalInstaller
+		installByVersionCtx = originalInstaller
 	})
 
 	var gotImportPath string
 	var gotVersion string
-	installByVersion = func(importPath, version string) error {
+	installByVersionCtx = func(_ context.Context, importPath, version string) error {
 		gotImportPath = importPath
 		gotVersion = version
 		return nil
@@ -335,12 +336,12 @@ func Test_versionFromConfig_ErrorCases(t *testing.T) {
 }
 
 func Test_installFromConfig_installError(t *testing.T) {
-	originalInstaller := installByVersion
+	originalInstaller := installByVersionCtx
 	t.Cleanup(func() {
-		installByVersion = originalInstaller
+		installByVersionCtx = originalInstaller
 	})
 
-	installByVersion = func(_, _ string) error {
+	installByVersionCtx = func(context.Context, string, string) error {
 		return errors.New("install failed")
 	}
 
@@ -374,12 +375,12 @@ func Test_installFromConfig_emptyImportPath(t *testing.T) {
 func Test_installFromConfig_dryRun(t *testing.T) {
 	t.Setenv("GOBIN", t.TempDir())
 
-	originalInstaller := installByVersion
+	originalInstaller := installByVersionCtx
 	t.Cleanup(func() {
-		installByVersion = originalInstaller
+		installByVersionCtx = originalInstaller
 	})
 
-	installByVersion = func(_, _ string) error { return nil }
+	installByVersionCtx = func(context.Context, string, string) error { return nil }
 
 	pkgs := []goutil.Package{
 		{
