@@ -81,14 +81,14 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 
 	print.Info("check binary under $GOPATH/bin or $GOBIN")
 
-	checker := func(_ context.Context, p goutil.Package) updateResult {
+	checker := func(ctx context.Context, p goutil.Package) updateResult {
 		var err error
 		if p.ModulePath == "" {
 			err = fmt.Errorf(" %s is not installed by 'go install' (or permission incorrect)", p.Name)
 		} else {
 			var latestVer string
 			modulePathChanged := false
-			latestVer, err = verCache.get(p.ModulePath)
+			latestVer, err = verCache.get(ctx, p.ModulePath)
 			if err != nil {
 				newPkg, changed := resolveModulePathChange(p, err)
 				if !changed {
@@ -96,7 +96,7 @@ func doCheck(pkgs []goutil.Package, cpus int, ignoreGoUpdate bool) int {
 				} else {
 					modulePathChanged = true
 					p = newPkg
-					latestVer, err = verCache.get(p.ModulePath)
+					latestVer, err = verCache.get(ctx, p.ModulePath)
 					if err != nil {
 						err = fmt.Errorf(" %s %w", p.Name, err)
 					}

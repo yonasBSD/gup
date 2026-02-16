@@ -22,10 +22,14 @@ import (
 )
 
 var (
-	getLatestVer        = goutil.GetLatestVer        //nolint:gochecknoglobals // swapped in tests
-	installLatest       = goutil.InstallLatest       //nolint:gochecknoglobals // swapped in tests
-	installMainOrMaster = goutil.InstallMainOrMaster //nolint:gochecknoglobals // swapped in tests
-	installByVersionUpd = goutil.Install             //nolint:gochecknoglobals // swapped in tests
+	getLatestVer           = goutil.GetLatestVer                   //nolint:gochecknoglobals // swapped in tests
+	getLatestVerCtx        = goutil.GetLatestVerWithContext        //nolint:gochecknoglobals // swapped in tests
+	installLatest          = goutil.InstallLatest                  //nolint:gochecknoglobals // swapped in tests
+	installLatestCtx       = goutil.InstallLatestWithContext       //nolint:gochecknoglobals // swapped in tests
+	installMainOrMaster    = goutil.InstallMainOrMaster            //nolint:gochecknoglobals // swapped in tests
+	installMainOrMasterCtx = goutil.InstallMainOrMasterWithContext //nolint:gochecknoglobals // swapped in tests
+	installByVersionUpd    = goutil.Install                        //nolint:gochecknoglobals // swapped in tests
+	installByVersionUpdCtx = goutil.InstallWithContext             //nolint:gochecknoglobals // swapped in tests
 )
 
 const latestKeyword = "latest"
@@ -237,13 +241,13 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 		go catchSignal(signals, cancel)
 	}
 
-	updater := func(_ context.Context, p goutil.Package) updateResult {
+	updater := func(ctx context.Context, p goutil.Package) updateResult {
 		originalName := p.Name
 		// Collect online latest version if possible; else always update
 		shouldUpdate := true
 		modulePathChanged := false
 		if p.ModulePath != "" {
-			ver, err := verCache.get(p.ModulePath)
+			ver, err := verCache.get(ctx, p.ModulePath)
 			if err != nil {
 				newPkg, changed := resolveModulePathChange(p, err)
 				if !changed {
@@ -256,7 +260,7 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 				modulePathChanged = true
 				p = newPkg
 
-				ver, err = verCache.get(p.ModulePath)
+				ver, err = verCache.get(ctx, p.ModulePath)
 				if err != nil {
 					return updateResult{
 						updated: false,
@@ -288,14 +292,14 @@ func updateWithChannels(pkgs []goutil.Package, dryRun, notification bool, cpus i
 			channel := packageUpdateChannel(p.Name, p.UpdateChannel, channelMap)
 			p.UpdateChannel = channel
 
-			if err := installWithSelectedVersion(p.ImportPath, channel); err != nil {
+			if err := installWithSelectedVersion(ctx, p.ImportPath, channel); err != nil {
 				newPkg, changed := resolveModulePathChange(p, err)
 				if !changed {
 					updateErr = fmt.Errorf("%s: %w", p.Name, err)
 				} else {
 					installedViaRetry = true
 					p = newPkg
-					if retryErr := installWithSelectedVersion(p.ImportPath, channel); retryErr != nil {
+					if retryErr := installWithSelectedVersion(ctx, p.ImportPath, channel); retryErr != nil {
 						updateErr = fmt.Errorf("%s: %w", originalName, retryErr)
 					} else {
 						newName := binaryNameFromImportPath(p.ImportPath)
@@ -381,16 +385,16 @@ func catchSignal(c <-chan os.Signal, cancel context.CancelFunc) {
 	}
 }
 
-func installWithSelectedVersion(importPath string, channel goutil.UpdateChannel) error {
+func installWithSelectedVersion(ctx context.Context, importPath string, channel goutil.UpdateChannel) error {
 	switch goutil.NormalizeUpdateChannel(string(channel)) {
 	case goutil.UpdateChannelLatest:
-		return installLatest(importPath)
+		return installLatestCtx(ctx, importPath)
 	case goutil.UpdateChannelMain:
-		return installMainOrMaster(importPath)
+		return installMainOrMasterCtx(ctx, importPath)
 	case goutil.UpdateChannelMaster:
-		return installByVersionUpd(importPath, "master")
+		return installByVersionUpdCtx(ctx, importPath, "master")
 	default:
-		return installLatest(importPath)
+		return installLatestCtx(ctx, importPath)
 	}
 }
 
