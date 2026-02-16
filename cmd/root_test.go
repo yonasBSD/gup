@@ -175,12 +175,18 @@ func helper_runGupCaptureAllOutput(t *testing.T, args []string) (string, error) 
 		OsExit = os.Exit
 	}()
 
+	buf := bytes.Buffer{}
+	copyDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(&buf, pr)
+		copyDone <- copyErr
+	}()
+
 	os.Args = args
 	runErr := Execute()
 	pw.Close() //nolint:errcheck,gosec // ignore close error in test
 
-	buf := bytes.Buffer{}
-	if _, err := io.Copy(&buf, pr); err != nil {
+	if err := <-copyDone; err != nil {
 		t.Fatal(err)
 	}
 
