@@ -234,15 +234,11 @@ $ gup update --notify
 
 ## 貢献
 まず、貢献に時間を割いていただき、ありがとうございます！詳細については、[CONTRIBUTING.md](../../CONTRIBUTING.md)をご覧ください。
+開発フロー、品質チェックリスト、ツール管理の手順は [CONTRIBUTING.md](../../CONTRIBUTING.md) に記載しています。
 貢献は開発に関連するものだけではありません。たとえば、GitHub Starは開発のモチベーションになります！
 
 ### Star履歴
 [![Star History Chart](https://api.star-history.com/svg?repos=nao1215/gup&type=Date)](https://star-history.com/#nao1215/gup&Date)
-
-### 開発者向け
-新機能の追加やバグ修正を行う際は、ユニットテストを書いてください。sqlyは以下のユニットテストツリーマップが示すように、すべてのパッケージに対してユニットテストが実施されています。
-
-![treemap](../img/cover-tree.svg)
 
 ## 連絡先
 「バグを見つけた」や「追加機能のリクエスト」などのコメントを開発者に送りたい場合は、以下の連絡先をご利用ください。

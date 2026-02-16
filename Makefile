@@ -1,10 +1,11 @@
-.PHONY: build test clean vet fmt chkfmt changelog tools help coverage-tree
+.PHONY: build test clean vet fmt chkfmt changelog update-tools help coverage-tree
 
 APP         = gup
 VERSION     = $(shell git describe --tags --abbrev=0)
 GO          = go
 GO_BUILD    = $(GO) build
 GO_FORMAT   = $(GO) fmt
+GO_GET      = $(GO) get
 GOFMT       = gofmt
 GO_LIST     = $(GO) list
 GO_TEST     = $(GO) test -v
@@ -35,10 +36,10 @@ fmt: ## Format go source code
 	$(GO_FORMAT) $(GO_PKGROOT)
 
 coverage-tree: test ## Generate coverage tree
-	go-cover-treemap -statements -coverprofile cover.out > doc/img/cover-tree.svg
+	$(GO_TOOL) go-cover-treemap -statements -coverprofile cover.out > doc/img/cover-tree.svg
 
-tools: ## Install dependency tools 
-	$(GO_INSTALL) github.com/nikolaydubina/go-cover-treemap@latest
+update-tools: ## Add or update tool dependencies in go.mod/go.sum
+	$(GO_GET) -tool github.com/nikolaydubina/go-cover-treemap@latest
 
 .DEFAULT_GOAL := help
 help:  
