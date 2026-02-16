@@ -79,8 +79,8 @@ using the current installed Go toolchain.`,
 // gup is main sequence.
 // All errors are handled in this function.
 func gup(cmd *cobra.Command, args []string) int {
-	if err := goutil.CanUseGoCmd(); err != nil {
-		print.Err(fmt.Errorf("%s: %w", "you didn't install golang", err))
+	if err := ensureGoCommandAvailable(); err != nil {
+		print.Err(err)
 		return 1
 	}
 
@@ -101,9 +101,7 @@ func gup(cmd *cobra.Command, args []string) int {
 		print.Err(err)
 		return 1
 	}
-	if cpus < 1 {
-		cpus = 1
-	}
+	cpus = clampJobs(cpus)
 
 	ignoreGoUpdate, err := getFlagBool(cmd, "ignore-go-update")
 	if err != nil {
