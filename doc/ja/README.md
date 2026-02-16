@@ -208,14 +208,19 @@ Generate /usr/share/man/man1/gup-version.1.gz
 Generate /usr/share/man/man1/gup.1.gz
 ```
 
-### シェル補完ファイルの生成（bash、zsh、fish用）
-completionサブコマンドはbash、zsh、fish用のシェル補完ファイルを生成します。システムにシェル補完ファイルが存在しない場合、生成処理が開始されます。補完機能を有効にするには、シェルを再起動してください。
+### シェル補完ファイルの生成（bash、zsh、fish、PowerShell用）
+`completion` はシェル名を引数で指定すると、標準出力に補完スクリプトを出力します。
+bash/fish/zsh の補完ファイルをユーザー環境にインストールするには、`--install` を使用します。
+PowerShell は出力を `.ps1` ファイルにリダイレクトし、profile から読み込んでください。
 
 ```shell
-$ gup completion
-create bash-completion file: /home/nao/.bash_completion
-create fish-completion file: /home/nao/.config/fish/completions/gup.fish
-create zsh-completion file: /home/nao/.zsh/completion/_gup
+$ gup completion bash > gup.bash
+$ gup completion zsh > _gup
+$ gup completion fish > gup.fish
+$ gup completion powershell > gup.ps1
+
+# 既定のユーザーパスに補完ファイルを自動インストール
+$ gup completion --install
 ```
 
 ### デスクトップ通知

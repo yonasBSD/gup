@@ -209,14 +209,19 @@ Generate /usr/share/man/man1/gup-version.1.gz
 Generate /usr/share/man/man1/gup.1.gz
 ```
 
-### Генерировать файл автодополнения для оболочки (для bash, zsh, fish)
-Подкоманда completion генерирует файлы автодополнения для оболочки bash, zsh и fish. Если файл автодополнения для оболочки не существует в системе, начнётся процесс генерации. Чтобы активировать функцию автодополнения, перезапустите оболочку.
+### Генерация файла автодополнения оболочки (для bash, zsh, fish и PowerShell)
+`completion` выводит скрипты автодополнения в STDOUT, когда вы передаёте имя оболочки.
+Чтобы установить файлы автодополнения в пользовательское окружение для bash/fish/zsh, используйте `--install`.
+Для PowerShell перенаправьте вывод в файл `.ps1` и подключите его из профиля.
 
 ```shell
-$ gup completion
-create bash-completion file: /home/nao/.bash_completion
-create fish-completion file: /home/nao/.config/fish/completions/gup.fish
-create zsh-completion file: /home/nao/.zsh/completion/_gup
+$ gup completion bash > gup.bash
+$ gup completion zsh > _gup
+$ gup completion fish > gup.fish
+$ gup completion powershell > gup.ps1
+
+# Автоматически установить файлы в стандартные пользовательские пути
+$ gup completion --install
 ```
 
 ### Уведомления на рабочем столе

@@ -208,14 +208,19 @@ Generate /usr/share/man/man1/gup-version.1.gz
 Generate /usr/share/man/man1/gup.1.gz
 ```
 
-### 셸 완성 파일 생성 (bash, zsh, fish용)
-completion 하위 명령어는 bash, zsh, fish용 셸 완성 파일을 생성합니다. 시스템에 셸 완성 파일이 없으면 생성 프로세스가 시작됩니다. 완성 기능을 활성화하려면 셸을 다시 시작하십시오.
+### 셸 완성 파일 생성 (bash, zsh, fish, PowerShell용)
+`completion` 하위 명령어는 셸 이름을 인수로 전달하면 완성 스크립트를 표준 출력으로 출력합니다.
+bash/fish/zsh 완성 파일을 사용자 환경에 설치하려면 `--install`을 사용하세요.
+PowerShell은 출력을 `.ps1` 파일로 리디렉션한 뒤 프로필에서 불러오세요.
 
 ```shell
-$ gup completion
-create bash-completion file: /home/nao/.bash_completion
-create fish-completion file: /home/nao/.config/fish/completions/gup.fish
-create zsh-completion file: /home/nao/.zsh/completion/_gup
+$ gup completion bash > gup.bash
+$ gup completion zsh > _gup
+$ gup completion fish > gup.fish
+$ gup completion powershell > gup.ps1
+
+# 기본 사용자 경로에 완성 파일 자동 설치
+$ gup completion --install
 ```
 
 ### 데스크톱 알림
