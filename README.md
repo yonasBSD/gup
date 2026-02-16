@@ -31,7 +31,7 @@ If you are using oh-my-zsh, then gup has an alias set up. The alias is `gup - gi
 
 ## How to install
 ### Use "go install"
-If you does not have the golang development environment installed on your system, please install golang from the [golang official website](https://go.dev/doc/install).
+If you do not have the Go development environment installed on your system, please install it from the [official website](https://go.dev/doc/install).
 ```
 go install github.com/nao1215/gup@latest
 ```
