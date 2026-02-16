@@ -209,14 +209,16 @@ Generate /usr/share/man/man1/gup-version.1.gz
 Generate /usr/share/man/man1/gup.1.gz
 ```
 
-### Generate shell completion file (for bash, zsh, fish)
+### Generate shell completion file (for bash, zsh, fish, PowerShell)
 `completion` prints completion scripts to STDOUT when you pass a shell name.
-To install completion files into your user environment, use `--install`.
+To install completion files into your user environment for bash/fish/zsh, use `--install`.
+For PowerShell, redirect the output to a `.ps1` file and source it from your profile.
 
 ```shell
 $ gup completion bash > gup.bash
 $ gup completion zsh > _gup
 $ gup completion fish > gup.fish
+$ gup completion powershell > gup.ps1
 
 # Install files automatically to default user paths
 $ gup completion --install

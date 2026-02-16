@@ -147,6 +147,52 @@ func helper_runGup(t *testing.T, args []string) ([]string, error) {
 	return got, nil
 }
 
+// Runs a gup command and captures both print package output and os.Stdout.
+func helper_runGupCaptureAllOutput(t *testing.T, args []string) (string, error) {
+	t.Helper()
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	orgOSStdout := os.Stdout
+	defer func() {
+		print.Stdout = orgStdout
+		print.Stderr = orgStderr
+		os.Stdout = orgOSStdout
+	}()
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer pr.Close() //nolint:errcheck // ignore close error in test
+
+	print.Stdout = pw
+	print.Stderr = pw
+	os.Stdout = pw
+
+	OsExit = func(code int) {}
+	defer func() {
+		OsExit = os.Exit
+	}()
+
+	buf := bytes.Buffer{}
+	copyDone := make(chan error, 1)
+	go func() {
+		_, copyErr := io.Copy(&buf, pr)
+		copyDone <- copyErr
+	}()
+
+	os.Args = args
+	runErr := Execute()
+	pw.Close() //nolint:errcheck,gosec // ignore close error in test
+
+	if err := <-copyDone; err != nil {
+		t.Fatal(err)
+	}
+
+	return buf.String(), runErr
+}
+
 func setupXDGBase(t *testing.T) {
 	t.Helper()
 
@@ -851,6 +897,7 @@ func TestExecute_CompletionForShell(t *testing.T) {
 		shell      string
 		wantOutput bool
 		wantErr    bool
+		wantHeader string
 	}{
 		{
 			shell:      "bash",
@@ -868,6 +915,12 @@ func TestExecute_CompletionForShell(t *testing.T) {
 			wantErr:    false,
 		},
 		{
+			shell:      "powershell",
+			wantOutput: true,
+			wantErr:    false,
+			wantHeader: "# powershell completion for gup",
+		},
+		{
 			shell:      "unknown-shell",
 			wantOutput: false,
 			wantErr:    true,
@@ -875,16 +928,19 @@ func TestExecute_CompletionForShell(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.shell, func(t *testing.T) {
-			got, err := helper_runGup(t, []string{"gup", "completion", tt.shell})
+			got, err := helper_runGupCaptureAllOutput(t, []string{"gup", "completion", tt.shell})
 
 			gotErr := err != nil
 			if tt.wantErr != gotErr {
 				t.Errorf("expected error return %v, got %v", tt.wantErr, gotErr)
 			}
 
-			gotOutput := len(got) != 0
+			gotOutput := strings.TrimSpace(got) != ""
 			if tt.wantOutput != gotOutput {
 				t.Errorf("expected output %v, got %v", tt.wantOutput, gotOutput)
+			}
+			if tt.wantHeader != "" && !strings.Contains(got, tt.wantHeader) {
+				t.Errorf("completion output does not include %q", tt.wantHeader)
 			}
 		})
 	}

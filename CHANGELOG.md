@@ -1,3 +1,19 @@
+## [v1.1.0](https://github.com/nao1215/gup/compare/v1.0.0...v1.1.0) (2026-02-16)
+
+### Features
+
+* Add PowerShell completion generation via `gup completion powershell`
+* Generate `completions/gup.ps1` in `scripts/completions.sh`
+
+### Docs
+
+* Clarify that `completion --install` targets bash/fish/zsh only
+* Add PowerShell completion usage examples to README (en/es/fr/ja/ko/ru/zh-cn)
+
+### Tests
+
+* Strengthen completion output tests by capturing `os.Stdout` and verifying PowerShell header output
+
 ## [v1.0.0](https://github.com/nao1215/gup/compare/v0.28.3...v1.0.0) (2026-02-15)
 
 ### ⚠ BREAKING CHANGES

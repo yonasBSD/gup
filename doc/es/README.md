@@ -209,14 +209,19 @@ Generate /usr/share/man/man1/gup-version.1.gz
 Generate /usr/share/man/man1/gup.1.gz
 ```
 
-### Generar archivo de autocompletado de shell (para bash, zsh, fish)
-El subcomando completion genera archivos de autocompletado de shell para bash, zsh y fish. Si el archivo de autocompletado de shell no existe en el sistema, comenzará el proceso de generación. Para activar la función de autocompletado, reinicia el shell.
+### Generar archivo de autocompletado de shell (para bash, zsh, fish y PowerShell)
+`completion` imprime scripts de autocompletado en STDOUT cuando pasas un nombre de shell.
+Para instalar archivos de autocompletado en tu entorno de usuario para bash/fish/zsh, usa `--install`.
+Para PowerShell, redirige la salida a un archivo `.ps1` y cárgalo desde tu perfil.
 
 ```shell
-$ gup completion
-create bash-completion file: /home/nao/.bash_completion
-create fish-completion file: /home/nao/.config/fish/completions/gup.fish
-create zsh-completion file: /home/nao/.zsh/completion/_gup
+$ gup completion bash > gup.bash
+$ gup completion zsh > _gup
+$ gup completion fish > gup.fish
+$ gup completion powershell > gup.ps1
+
+# Instalar archivos automáticamente en rutas predeterminadas del usuario
+$ gup completion --install
 ```
 
 ### Notificación de escritorio

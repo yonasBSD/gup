@@ -209,14 +209,19 @@ Generate /usr/share/man/man1/gup-version.1.gz
 Generate /usr/share/man/man1/gup.1.gz
 ```
 
-### 生成 shell 补全文件（适用于 bash、zsh、fish）
-completion 子命令为 bash、zsh 和 fish 生成 shell 补全文件。如果系统中不存在 shell 补全文件，生成过程将开始。要激活补全功能，请重新启动 shell。
+### 生成 shell 补全文件（适用于 bash、zsh、fish 和 PowerShell）
+传入 shell 名称后，`completion` 会将补全脚本输出到 STDOUT。
+如需将 bash/fish/zsh 的补全文件安装到用户环境中，请使用 `--install`。
+对于 PowerShell，请将输出重定向到 `.ps1` 文件，并在 profile 中加载它。
 
 ```shell
-$ gup completion
-create bash-completion file: /home/nao/.bash_completion
-create fish-completion file: /home/nao/.config/fish/completions/gup.fish
-create zsh-completion file: /home/nao/.zsh/completion/_gup
+$ gup completion bash > gup.bash
+$ gup completion zsh > _gup
+$ gup completion fish > gup.fish
+$ gup completion powershell > gup.ps1
+
+# 自动安装到默认的用户路径
+$ gup completion --install
 ```
 
 ### 桌面通知
