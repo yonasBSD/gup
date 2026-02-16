@@ -168,7 +168,7 @@ func hasSameBashCompletionContent(cmd *cobra.Command) bool {
 	if err := cmd.GenBashCompletionV2(currentBashCompletion, false); err != nil {
 		return false
 	}
-	if !strings.Contains(string(bashCompletionFileInLocal), currentBashCompletion.String()) {
+	if !bytes.Equal(currentBashCompletion.Bytes(), bashCompletionFileInLocal) {
 		return false
 	}
 	return true
