@@ -27,8 +27,9 @@ func Test_removeLoop(t *testing.T) {
 		want  int
 	}
 
-	tests := []test{
-		{
+	tests := []test{}
+	if runtime.GOOS != goosWindows {
+		tests = append(tests, test{
 			name: "windows environment and suffix is mismatch",
 			args: args{
 				gobin:  filepath.Join("testdata", "delete"),
@@ -37,7 +38,7 @@ func Test_removeLoop(t *testing.T) {
 			},
 			input: "y",
 			want:  1,
-		},
+		})
 	}
 
 	if runtime.GOOS == goosWindows {
@@ -189,6 +190,26 @@ func Test_removeLoop_forceNonExist(t *testing.T) {
 	got := removeLoop(gobin, true, []string{"nonexistent"})
 	if got != 1 {
 		t.Errorf("removeLoop() = %v, want 1 for non-existent binary", got)
+	}
+}
+
+func Test_removeLoop_windowsFallbackGoexe(t *testing.T) {
+	origGOOS := GOOS
+	GOOS = goosWindows
+	t.Cleanup(func() { GOOS = origGOOS })
+	t.Setenv("GOEXE", "")
+
+	gobin := t.TempDir()
+	binaryPath := filepath.Join(gobin, "posixer.exe")
+	if err := os.WriteFile(binaryPath, []byte("dummy"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := removeLoop(gobin, true, []string{"posixer"}); got != 0 {
+		t.Fatalf("removeLoop() = %v, want 0", got)
+	}
+	if fileutil.IsFile(binaryPath) {
+		t.Fatalf("binary should be removed: %s", binaryPath)
 	}
 }
 
