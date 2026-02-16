@@ -52,8 +52,8 @@ versions recorded in that gup.json.`,
 }
 
 func runImport(cmd *cobra.Command, _ []string) int {
-	if err := goutil.CanUseGoCmd(); err != nil {
-		print.Err(fmt.Errorf("%s: %w", "you didn't install golang", err))
+	if err := ensureGoCommandAvailable(); err != nil {
+		print.Err(err)
 		return 1
 	}
 
@@ -81,9 +81,7 @@ func runImport(cmd *cobra.Command, _ []string) int {
 		print.Err(err)
 		return 1
 	}
-	if cpus < 1 {
-		cpus = 1
-	}
+	cpus = clampJobs(cpus)
 
 	if !fileutil.IsFile(confFile) {
 		print.Err(fmt.Errorf("%s is not found", confFile))

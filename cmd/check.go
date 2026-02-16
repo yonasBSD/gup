@@ -38,8 +38,8 @@ However, do not update`,
 }
 
 func check(cmd *cobra.Command, args []string) int {
-	if err := goutil.CanUseGoCmd(); err != nil {
-		print.Err(fmt.Errorf("%s: %w", "you didn't install golang", err))
+	if err := ensureGoCommandAvailable(); err != nil {
+		print.Err(err)
 		return 1
 	}
 
@@ -48,9 +48,7 @@ func check(cmd *cobra.Command, args []string) int {
 		print.Err(err)
 		return 1
 	}
-	if cpus < 1 {
-		cpus = 1
-	}
+	cpus = clampJobs(cpus)
 
 	ignoreGoUpdate, err := getFlagBool(cmd, "ignore-go-update")
 	if err != nil {
