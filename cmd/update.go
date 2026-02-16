@@ -448,10 +448,17 @@ func removeOldBinaryIfRenamed(oldName, newName string) error {
 }
 
 func binaryNameFromImportPath(importPath string) string {
+	return binaryNameFromImportPathWith(importPath, runtime.GOOS, os.Getenv("GOEXE"))
+}
+
+func binaryNameFromImportPathWith(importPath, goos, goExe string) string {
 	binName := filepath.Base(importPath)
-	if runtime.GOOS == goosWindows {
-		goExe := os.Getenv("GOEXE")
-		if goExe != "" && !strings.HasSuffix(strings.ToLower(binName), strings.ToLower(goExe)) {
+	if goos == goosWindows {
+		goExe = strings.TrimSpace(goExe)
+		if goExe == "" {
+			goExe = ".exe"
+		}
+		if !strings.HasSuffix(strings.ToLower(binName), strings.ToLower(goExe)) {
 			return binName + goExe
 		}
 	}

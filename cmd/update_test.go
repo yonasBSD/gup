@@ -1080,9 +1080,63 @@ func Test_packageUpdateChannel(t *testing.T) {
 }
 
 func Test_binaryNameFromImportPath(t *testing.T) {
+	t.Setenv("GOEXE", "")
+
 	got := binaryNameFromImportPath("github.com/example/tool/cmd/mytool")
-	if got != "mytool" {
-		t.Errorf("binaryNameFromImportPath() = %q, want mytool", got)
+	want := "mytool"
+	if runtime.GOOS == goosWindows {
+		want = "mytool.exe"
+	}
+	if got != want {
+		t.Errorf("binaryNameFromImportPath() = %q, want %q", got, want)
+	}
+}
+
+func Test_binaryNameFromImportPathWith(t *testing.T) {
+	tests := []struct {
+		name       string
+		importPath string
+		goos       string
+		goexe      string
+		want       string
+	}{
+		{
+			name:       "non-windows keeps base name",
+			importPath: "github.com/example/tool/cmd/mytool",
+			goos:       "linux",
+			goexe:      "",
+			want:       "mytool",
+		},
+		{
+			name:       "windows adds .exe when GOEXE is empty",
+			importPath: "github.com/air-verse/air",
+			goos:       goosWindows,
+			goexe:      "",
+			want:       "air.exe",
+		},
+		{
+			name:       "windows keeps suffix when already .exe",
+			importPath: "github.com/example/tool/cmd/mytool.exe",
+			goos:       goosWindows,
+			goexe:      "",
+			want:       "mytool.exe",
+		},
+		{
+			name:       "windows respects GOEXE when provided",
+			importPath: "github.com/example/tool/cmd/mytool",
+			goos:       goosWindows,
+			goexe:      ".EXE",
+			want:       "mytool.EXE",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := binaryNameFromImportPathWith(tt.importPath, tt.goos, tt.goexe)
+			if got != tt.want {
+				t.Errorf("binaryNameFromImportPathWith(%q, %q, %q) = %q, want %q",
+					tt.importPath, tt.goos, tt.goexe, got, tt.want)
+			}
+		})
 	}
 }
 
