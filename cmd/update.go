@@ -13,8 +13,6 @@ import (
 	"strings"
 	"syscall"
 
-	"slices"
-
 	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/goutil"
@@ -643,37 +641,35 @@ func getPackageInfo() ([]goutil.Package, error) {
 
 func extractUserSpecifyPkg(pkgs []goutil.Package, targets []string) []goutil.Package {
 	result := []goutil.Package{}
-	tmp := []string{}
 	if len(targets) == 0 {
 		return pkgs
 	}
 
-	if runtime.GOOS == "windows" {
-		for i, target := range targets {
-			if strings.HasSuffix(strings.ToLower(target), ".exe") {
-				targets[i] = strings.TrimSuffix(strings.ToLower(target), ".exe")
-			}
+	targetSet := make(map[string]string, len(targets)) // normalized target -> original (first seen)
+	targetOrder := make([]string, 0, len(targets))
+	for _, rawTarget := range targets {
+		target := normalizeBinaryNameForMatch(rawTarget)
+		if target == "" {
+			continue
+		}
+		if _, exists := targetSet[target]; !exists {
+			targetSet[target] = strings.TrimSpace(rawTarget)
+			targetOrder = append(targetOrder, target)
 		}
 	}
 
+	matched := make(map[string]struct{}, len(targetSet))
 	for _, v := range pkgs {
-		pkg := v.Name
-		if runtime.GOOS == "windows" {
-			if strings.HasSuffix(strings.ToLower(pkg), ".exe") {
-				pkg = strings.TrimSuffix(strings.ToLower(pkg), ".exe")
-			}
-		}
-		if slices.Contains(targets, pkg) {
+		pkg := normalizeBinaryNameForMatch(v.Name)
+		if _, ok := targetSet[pkg]; ok {
 			result = append(result, v)
-			tmp = append(tmp, pkg)
+			matched[pkg] = struct{}{}
 		}
 	}
 
-	if len(tmp) != len(targets) {
-		for _, target := range targets {
-			if !slices.Contains(tmp, target) {
-				print.Warn("not found '" + target + "' package in $GOPATH/bin or $GOBIN")
-			}
+	for _, target := range targetOrder {
+		if _, ok := matched[target]; !ok {
+			print.Warn("not found '" + targetSet[target] + "' package in $GOPATH/bin or $GOBIN")
 		}
 	}
 	return result

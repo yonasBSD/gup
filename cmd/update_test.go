@@ -185,6 +185,62 @@ func Test_extractUserSpecifyPkg(t *testing.T) {
 	}
 }
 
+func Test_extractUserSpecifyPkg_windowsCaseInsensitive(t *testing.T) {
+	if runtime.GOOS != goosWindows {
+		t.Skip("windows only")
+	}
+
+	pkgs := []goutil.Package{
+		{Name: "gopls.exe"},
+		{Name: "dlv.exe"},
+	}
+
+	got := extractUserSpecifyPkg(pkgs, []string{"GOPLS"})
+	want := []goutil.Package{
+		{Name: "gopls.exe"},
+	}
+
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("value is mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func Test_extractUserSpecifyPkg_dedupNotFoundWarnings(t *testing.T) {
+	pkgs := []goutil.Package{
+		{Name: "present"},
+	}
+
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stderr = pw
+
+	got := extractUserSpecifyPkg(pkgs, []string{"missing", "missing"})
+	if len(got) != 0 {
+		t.Fatalf("extractUserSpecifyPkg() should return no packages, got: %+v", got)
+	}
+
+	if err := pw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	print.Stderr = orgStderr
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, pr); err != nil {
+		t.Fatal(err)
+	}
+	if err := pr.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	const notFoundMsg = "not found 'missing' package in $GOPATH/bin or $GOBIN"
+	if count := strings.Count(buf.String(), notFoundMsg); count != 1 {
+		t.Fatalf("warning count = %d, want 1. output: %q", count, buf.String())
+	}
+}
+
 func Test_completePathBinaries_prefix(t *testing.T) {
 	if runtime.GOOS == goosWindows {
 		t.Setenv("GOBIN", filepath.Join("testdata", "check_success_for_windows"))
