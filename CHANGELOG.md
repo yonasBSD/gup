@@ -1,3 +1,31 @@
+## [v1.1.1](https://github.com/nao1215/gup/compare/v1.1.0...v1.1.1) (2026-02-16)
+
+### Fixes
+
+* Make config writes atomic and harden replacement flow to avoid data loss on failed updates
+* Fix Windows rename/update edge cases when `GOEXE` is unset
+* Fix Windows target matching for `update` with case-insensitive name handling
+* Fix `remove` behavior on Windows when `GOEXE` is empty and handle `.exe` suffix checks robustly
+* Propagate cancellation to running `go install` / `go list` subprocesses
+* Unify signal-based cancellation behavior across update/import/check flows
+
+### Performance
+
+* Speed up completion generation script by building once and reusing the binary
+
+### Refactoring
+
+* Centralize Go command availability checks and jobs clamping
+* Simplify update internals toward context-aware operation paths
+
+### Docs
+
+* Consolidate contributor guidance and align README/CONTRIBUTING workflow instructions
+
+### Tests
+
+* Add and expand regression tests for atomic config writes, completion comparison, Windows suffix handling, and cancellation behavior
+
 ## [v1.1.0](https://github.com/nao1215/gup/compare/v1.0.0...v1.1.0) (2026-02-16)
 
 ### Features
