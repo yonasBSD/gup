@@ -22,8 +22,11 @@ require (
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackmordaunt/icns/v3 v3.0.1 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 // indirect
+	github.com/nikolaydubina/go-cover-treemap v1.5.0 // indirect
+	github.com/nikolaydubina/treemap v1.2.5 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sergeymakinen/go-bmp v1.0.0 // indirect
 	github.com/sergeymakinen/go-ico v1.0.0-beta.0 // indirect
@@ -31,4 +34,7 @@ require (
 	github.com/tadvi/systray v0.0.0-20190226123456-11a2b8fa57af // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/tools v0.26.0 // indirect
 )
+
+tool github.com/nikolaydubina/go-cover-treemap

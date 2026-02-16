@@ -235,15 +235,11 @@ $ gup update --notify
 
 ## Contribuer
 Tout d'abord, merci de prendre le temps de contribuer ! ❤️  Voir [CONTRIBUTING.md](../../CONTRIBUTING.md) pour plus d'informations.
+Le workflow de développement, la checklist qualité et la gestion des outils sont documentés dans [CONTRIBUTING.md](../../CONTRIBUTING.md).
 Les contributions ne sont pas seulement liées au développement. Par exemple, GitHub Star me motive à développer !
 
 ### Historique des étoiles
 [![Star History Chart](https://api.star-history.com/svg?repos=nao1215/gup&type=Date)](https://star-history.com/#nao1215/gup&Date)
-
-### Pour les développeurs
-Lors de l'ajout de nouvelles fonctionnalités ou de la correction de bugs, veuillez écrire des tests unitaires. Le sqly est testé unitairement pour tous les packages comme le montre la carte arborescente des tests unitaires ci-dessous.
-
-![treemap](../img/cover-tree.svg)
 
 ## Contact
 Si vous souhaitez envoyer des commentaires tels que "trouvé un bug" ou "demande de fonctionnalités supplémentaires" au développeur, veuillez utiliser l'un des contacts suivants.

@@ -235,15 +235,11 @@ $ gup update --notify
 
 ## 贡献
 首先，感谢您抽出时间来贡献！❤️ 更多信息请查看 [CONTRIBUTING.md](../../CONTRIBUTING.md)。
+开发工作流、质量检查清单和工具管理方法记录在 [CONTRIBUTING.md](../../CONTRIBUTING.md) 中。
 贡献不仅与开发相关。例如，GitHub Star 激励我进行开发！
 
 ### Star 历史记录
 [![Star History Chart](https://api.star-history.com/svg?repos=nao1215/gup&type=Date)](https://star-history.com/#nao1215/gup&Date)
-
-### 对于开发者
-在添加新功能或修复错误时，请编写单元测试。如下面的单元测试树状图所示，sqly 对所有包都进行了单元测试。
-
-![treemap](../img/cover-tree.svg)
 
 ## 联系
 如果您想向开发者发送诸如"发现错误"或"请求附加功能"等评论，请使用以下联系方式之一。

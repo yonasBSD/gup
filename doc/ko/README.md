@@ -234,15 +234,11 @@ $ gup update --notify
 
 ## 기여하기
 먼저 기여할 시간을 내주셔서 감사합니다! ❤️ 자세한 내용은 [CONTRIBUTING.md](../../CONTRIBUTING.md)를 참조하세요.
+개발 워크플로, 품질 체크리스트, 도구 관리 방법은 [CONTRIBUTING.md](../../CONTRIBUTING.md)에 문서화되어 있습니다.
 기여는 개발과 관련된 것만이 아닙니다. 예를 들어 GitHub Star는 제가 개발하는 데 동기를 부여합니다!
 
 ### Star 히스토리
 [![Star History Chart](https://api.star-history.com/svg?repos=nao1215/gup&type=Date)](https://star-history.com/#nao1215/gup&Date)
-
-### 개발자를 위해
-새로운 기능을 추가하거나 버그를 수정할 때 단위 테스트를 작성해 주세요. 아래 단위 테스트 트리 맵에서 보여주는 것처럼 sqly는 모든 패키지에 대해 단위 테스트됩니다.
-
-![treemap](../img/cover-tree.svg)
 
 ## 연락처
 "버그를 발견했습니다" 또는 "추가 기능 요청"과 같은 의견을 개발자에게 보내려면 다음 연락처 중 하나를 사용하십시오.
