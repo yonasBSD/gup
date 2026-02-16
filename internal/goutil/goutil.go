@@ -300,15 +300,26 @@ func CanUseGoCmd() error {
 
 // InstallLatest execute "$ go install <importPath>@latest"
 func InstallLatest(importPath string) error {
-	return Install(importPath, "latest")
+	return InstallLatestWithContext(context.Background(), importPath)
+}
+
+// InstallLatestWithContext executes "$ go install <importPath>@latest".
+func InstallLatestWithContext(ctx context.Context, importPath string) error {
+	return InstallWithContext(ctx, importPath, "latest")
 }
 
 // InstallMainOrMaster execute "$ go install <importPath>@main" or "$ go install <importPath>@master"
 func InstallMainOrMaster(importPath string) error {
-	mainErr := Install(importPath, "main")
+	return InstallMainOrMasterWithContext(context.Background(), importPath)
+}
+
+// InstallMainOrMasterWithContext executes "$ go install <importPath>@main"
+// or "$ go install <importPath>@master" with context cancellation support.
+func InstallMainOrMasterWithContext(ctx context.Context, importPath string) error {
+	mainErr := InstallWithContext(ctx, importPath, "main")
 	if mainErr != nil {
 		// Previous error is "invalid version: unknown revision main". Not return this error.
-		masterErr := Install(importPath, "master")
+		masterErr := InstallWithContext(ctx, importPath, "master")
 		if masterErr == nil {
 			return nil
 		}
@@ -325,16 +336,27 @@ func InstallMainOrMaster(importPath string) error {
 
 // Install executes "$ go install <importPath>@<version>".
 func Install(importPath, version string) error {
+	return InstallWithContext(context.Background(), importPath, version)
+}
+
+// InstallWithContext executes "$ go install <importPath>@<version>".
+func InstallWithContext(ctx context.Context, importPath, version string) error {
 	if importPath == "command-line-arguments" {
 		return errors.New("is devel-binary copied from local environment")
 	}
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	var stderr bytes.Buffer
-	cmd := exec.CommandContext(context.Background(), goExe, "install", fmt.Sprintf("%s@%s", importPath, version)) //#nosec
+	cmd := exec.CommandContext(ctx, goExe, "install", fmt.Sprintf("%s@%s", importPath, version)) //#nosec
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return fmt.Errorf("install of %s cancelled: %w", importPath, ctxErr)
+		}
 		return fmt.Errorf("can't install %s:\n%s", importPath, stderr.String())
 	}
 	return nil
@@ -342,11 +364,23 @@ func Install(importPath, version string) error {
 
 // GetLatestVer execute "$ go list -m -f {{.Version}} <importPath>@latest"
 func GetLatestVer(modulePath string) (string, error) {
+	return GetLatestVerWithContext(context.Background(), modulePath)
+}
+
+// GetLatestVerWithContext execute "$ go list -m -f {{.Version}} <importPath>@latest"
+// with context cancellation support.
+func GetLatestVerWithContext(ctx context.Context, modulePath string) (string, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	var stderr bytes.Buffer
-	cmd := exec.CommandContext(context.Background(), goExe, "list", "-m", "-f", "{{.Version}}", modulePath+"@latest") //#nosec
+	cmd := exec.CommandContext(ctx, goExe, "list", "-m", "-f", "{{.Version}}", modulePath+"@latest") //#nosec
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return "", fmt.Errorf("version check of %s cancelled: %w", modulePath, ctxErr)
+		}
 		return "", fmt.Errorf("can't check %s:\n%s", modulePath, stderr.String())
 	}
 	return strings.TrimRight(string(out), "\n"), nil

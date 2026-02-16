@@ -3,7 +3,9 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -23,6 +25,24 @@ import (
 
 const testVersionZero = "v0.0.0"
 const testVersionNine = "v9.9.9"
+
+//nolint:gochecknoinits
+func init() {
+	// Keep existing tests that stub legacy function variables working
+	// after adding context-aware update/lookup paths.
+	getLatestVerCtx = func(_ context.Context, modulePath string) (string, error) {
+		return getLatestVer(modulePath)
+	}
+	installLatestCtx = func(_ context.Context, importPath string) error {
+		return installLatest(importPath)
+	}
+	installMainOrMasterCtx = func(_ context.Context, importPath string) error {
+		return installMainOrMaster(importPath)
+	}
+	installByVersionUpdCtx = func(_ context.Context, importPath, version string) error {
+		return installByVersionUpd(importPath, version)
+	}
+}
 
 func Test_gup(t *testing.T) {
 	type args struct {
@@ -1113,12 +1133,69 @@ func Test_installWithSelectedVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		called = ""
-		if err := installWithSelectedVersion("example.com/tool", tt.channel); err != nil {
+		if err := installWithSelectedVersion(context.Background(), "example.com/tool", tt.channel); err != nil {
 			t.Errorf("channel=%q: unexpected error: %v", tt.channel, err)
 		}
 		if called != tt.want {
 			t.Errorf("channel=%q: called = %q, want %q", tt.channel, called, tt.want)
 		}
+	}
+}
+
+func Test_installWithSelectedVersion_contextCanceled(t *testing.T) {
+	origInstallLatestCtx := installLatestCtx
+	defer func() {
+		installLatestCtx = origInstallLatestCtx
+	}()
+
+	installLatestCtx = func(ctx context.Context, _ string) error {
+		<-ctx.Done()
+		return fmt.Errorf("can't install %s:\n%w", "example.com/tool", ctx.Err())
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := installWithSelectedVersion(ctx, "example.com/tool", goutil.UpdateChannelLatest)
+	if !errors.Is(err, context.Canceled) && !strings.Contains(err.Error(), context.Canceled.Error()) {
+		t.Fatalf("installWithSelectedVersion() error = %v, want cancellation to be surfaced", err)
+	}
+}
+
+func Test_latestVerCache_get_contextCanceled(t *testing.T) {
+	origGetLatestVerCtx := getLatestVerCtx
+	defer func() {
+		getLatestVerCtx = origGetLatestVerCtx
+	}()
+
+	callCount := 0
+	getLatestVerCtx = func(ctx context.Context, _ string) (string, error) {
+		callCount++
+		if callCount == 1 {
+			<-ctx.Done()
+			return "", fmt.Errorf("get latest ver: %w", ctx.Err())
+		}
+		return testVersionNine, nil
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	cache := newLatestVerCache()
+	_, err := cache.get(ctx, "example.com/tool")
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("latestVerCache.get() error = %v, want %v", err, context.Canceled)
+	}
+
+	got, err := cache.get(context.Background(), "example.com/tool")
+	if err != nil {
+		t.Fatalf("latestVerCache.get() second call error = %v, want nil", err)
+	}
+	if got != testVersionNine {
+		t.Fatalf("latestVerCache.get() second call version = %q, want %q", got, testVersionNine)
+	}
+	if callCount != 2 {
+		t.Fatalf("getLatestVerCtx call count = %d, want 2", callCount)
 	}
 }
 
