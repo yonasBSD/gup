@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -58,5 +59,44 @@ func TestRenameWithBackupSwap_RestoreOnFailure(t *testing.T) {
 	}
 	if string(got) != "old" {
 		t.Fatalf("restored content = %q, want %q", string(got), "old")
+	}
+}
+
+func Test_shouldRetryRenameWithReplace(t *testing.T) {
+	t.Parallel()
+
+	dst := filepath.Join(t.TempDir(), "gup.json")
+	if err := os.WriteFile(dst, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if !shouldRetryRenameWithReplace(os.ErrExist, dst) {
+		t.Fatal("shouldRetryRenameWithReplace() should return true for os.ErrExist")
+	}
+
+	got := shouldRetryRenameWithReplace(os.ErrNotExist, dst)
+	if runtime.GOOS == goosWindows {
+		if !got {
+			t.Fatal("shouldRetryRenameWithReplace() should return true on Windows when dst exists")
+		}
+		return
+	}
+	if got {
+		t.Fatal("shouldRetryRenameWithReplace() should return false on non-Windows for non-exist error")
+	}
+}
+
+func Test_renameWithReplace_errorWhenSrcMissing(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	src := filepath.Join(dir, "missing.tmp")
+	dst := filepath.Join(dir, "gup.json")
+	if err := os.WriteFile(dst, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := renameWithReplace(src, dst); err == nil {
+		t.Fatal("renameWithReplace() should return error when source file does not exist")
 	}
 }

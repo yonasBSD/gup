@@ -1104,6 +1104,50 @@ func TestPackage_CurrentToLatestStr_go_not_up_to_date(t *testing.T) {
 	}
 }
 
+func TestPackage_CurrentToLatestStr_go_customBuildTag_color(t *testing.T) {
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		Version: &Version{
+			Current: "v1.9.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.25.0-X:nodwarf5",
+			Latest:  "go1.26.0-X:nodwarf5",
+		},
+	}
+
+	got := pkgInfo.CurrentToLatestStr()
+	if !strings.Contains(got, "go1.25.0-X:nodwarf5") {
+		t.Fatalf("expected current custom go version in output, got: %q", got)
+	}
+	if !strings.Contains(got, "go1.26.0-X:nodwarf5") {
+		t.Fatalf("expected latest custom go version in output, got: %q", got)
+	}
+}
+
+func TestNormalizeGoVersionForCompare(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "keep semver chars", in: "1.26.0-X.nodwarf5+meta", want: "1.26.0-X.nodwarf5+meta"},
+		{name: "replace colon", in: "1.26.0-X:nodwarf5", want: "1.26.0-X.nodwarf5"},
+		{name: "replace tilde", in: "1.26.0-X~nodwarf5", want: "1.26.0-X.nodwarf5"},
+		{name: "trim spaces", in: " 1.26.0-X:nodwarf5 ", want: "1.26.0-X.nodwarf5"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeGoVersionForCompare(tt.in); got != tt.want {
+				t.Fatalf("normalizeGoVersionForCompare(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestPackage_CurrentToLatestStr_both_not_up_to_date(t *testing.T) {
 	pkgInfo := Package{
 		Name:       "foo",
@@ -1124,6 +1168,29 @@ func TestPackage_CurrentToLatestStr_both_not_up_to_date(t *testing.T) {
 	}
 	if !strings.Contains(got, "go1.22.1") || !strings.Contains(got, "go1.22.4") {
 		t.Errorf("expected go version range, got: %v", got)
+	}
+}
+
+func TestPackage_IsGoUpToDate_customBuildTag(t *testing.T) {
+	pkgInfo := Package{
+		Name:       "foo",
+		ImportPath: "github.com/dummy_name/dummy",
+		Version: &Version{
+			Current: "v1.9.1",
+			Latest:  "v1.9.1",
+		},
+		GoVersion: &Version{
+			Current: "go1.26.0-X:nodwarf5",
+			Latest:  "go1.26.0-X:nodwarf5",
+		},
+	}
+
+	if !pkgInfo.IsGoUpToDate() {
+		t.Fatal("custom Go build tag with ':' should be treated as up-to-date when equal")
+	}
+
+	if got := pkgInfo.CurrentToLatestStr(); !strings.Contains(got, "Already up-to-date") {
+		t.Fatalf("CurrentToLatestStr() = %q, want to include 'Already up-to-date'", got)
 	}
 }
 

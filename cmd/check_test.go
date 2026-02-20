@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fatih/color"
 	"github.com/google/go-cmp/cmp"
 	"github.com/nao1215/gup/internal/goutil"
 	"github.com/nao1215/gup/internal/print"
@@ -459,5 +460,119 @@ func Test_doCheck_modulePathChanged(t *testing.T) {
 	}
 	if !strings.Contains(buf.String(), "$ gup update air ") {
 		t.Fatalf("expected update hint for migrated module path, got:\n%s", buf.String())
+	}
+}
+
+func Test_doCheck_customGoBuildTag_noFalsePositiveUpdate(t *testing.T) {
+	origGetLatest := getLatestVer
+	defer func() {
+		getLatestVer = origGetLatest
+	}()
+	getLatestVer = func(string) (string, error) { return testVersionOne, nil }
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "tool",
+			ImportPath: "github.com/example/tool",
+			ModulePath: "github.com/example/tool",
+			Version: &goutil.Version{
+				Current: testVersionOne,
+			},
+			GoVersion: &goutil.Version{
+				Current: "go1.26.0-X:nodwarf5",
+				Latest:  "go1.26.0-X:nodwarf5",
+			},
+		},
+	}
+	got := doCheck(context.Background(), pkgs, 1, false)
+
+	if err := pw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	buf := bytes.Buffer{}
+	if _, err := io.Copy(&buf, pr); err != nil {
+		t.Fatal(err)
+	}
+	_ = pr.Close()
+
+	if got != 0 {
+		t.Fatalf("doCheck() = %v, want 0", got)
+	}
+	if strings.Contains(buf.String(), "$ gup update tool ") {
+		t.Fatalf("unexpected update hint for already-up-to-date package, got:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "Already up-to-date") {
+		t.Fatalf("expected 'Already up-to-date' output, got:\n%s", buf.String())
+	}
+}
+
+func Test_doCheck_customGoBuildTag_goVersionDiffColor(t *testing.T) {
+	oldNoColor := color.NoColor
+	color.NoColor = false
+	t.Cleanup(func() { color.NoColor = oldNoColor })
+
+	origGetLatest := getLatestVer
+	defer func() {
+		getLatestVer = origGetLatest
+	}()
+	getLatestVer = func(string) (string, error) { return testVersionOne, nil }
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "tool",
+			ImportPath: "github.com/example/tool",
+			ModulePath: "github.com/example/tool",
+			Version: &goutil.Version{
+				Current: testVersionOne,
+			},
+			GoVersion: &goutil.Version{
+				Current: "go1.25.0-X:nodwarf5",
+				Latest:  "go1.26.0-X:nodwarf5",
+			},
+		},
+	}
+
+	got := doCheck(context.Background(), pkgs, 1, false)
+	if err := pw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, pr); err != nil {
+		t.Fatal(err)
+	}
+	_ = pr.Close()
+
+	if got != 0 {
+		t.Fatalf("doCheck() = %v, want 0", got)
+	}
+	if !strings.Contains(buf.String(), color.YellowString("go1.25.0-X:nodwarf5")) {
+		t.Fatalf("expected current go version in yellow, got:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), color.GreenString("go1.26.0-X:nodwarf5")) {
+		t.Fatalf("expected latest go version in green, got:\n%s", buf.String())
 	}
 }

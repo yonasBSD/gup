@@ -153,14 +153,15 @@ func (p *Package) VersionCheckResultStr() string {
 }
 
 func colorVersionPair(current, latest, prefix string) (string, string) {
-	currentUpToDate := versionUpToDate(
-		strings.TrimPrefix(current, prefix),
-		strings.TrimPrefix(latest, prefix),
-	)
-	latestUpToDate := versionUpToDate(
-		strings.TrimPrefix(latest, prefix),
-		strings.TrimPrefix(current, prefix),
-	)
+	upToDate := versionUpToDate
+	if prefix == "go" {
+		upToDate = goVersionUpToDate
+	}
+
+	currentNoPrefix := strings.TrimPrefix(current, prefix)
+	latestNoPrefix := strings.TrimPrefix(latest, prefix)
+	currentUpToDate := upToDate(currentNoPrefix, latestNoPrefix)
+	latestUpToDate := upToDate(latestNoPrefix, currentNoPrefix)
 
 	switch {
 	case currentUpToDate && latestUpToDate:
@@ -186,10 +187,54 @@ func (p *Package) IsPackageUpToDate() bool {
 // IsGoUpToDate checks if the Golang runtime version is up to date.
 // Returns true if current >= available.
 func (p *Package) IsGoUpToDate() bool {
-	return versionUpToDate(
+	return goVersionUpToDate(
 		strings.TrimPrefix(p.GoVersion.Current, "go"),
 		strings.TrimPrefix(p.GoVersion.Latest, "go"),
 	)
+}
+
+// goVersionUpToDate compares Go toolchain versions.
+// Some custom toolchains append non-semver separators (e.g. "X:nodwarf5"),
+// so normalize known separators before semver comparison.
+func goVersionUpToDate(current, available string) bool {
+	current = strings.TrimSpace(current)
+	available = strings.TrimSpace(available)
+	if current == unknown || available == unknown {
+		return false
+	}
+	// If both strings are exactly the same, treat as up-to-date even when
+	// custom tags are not strict semver.
+	if current == available {
+		return true
+	}
+	return versionUpToDate(
+		normalizeGoVersionForCompare(current),
+		normalizeGoVersionForCompare(available),
+	)
+}
+
+func normalizeGoVersionForCompare(ver string) string {
+	ver = strings.TrimSpace(ver)
+	if ver == "" {
+		return ver
+	}
+
+	var b strings.Builder
+	b.Grow(len(ver))
+	for _, r := range ver {
+		switch {
+		case r >= '0' && r <= '9',
+			r >= 'a' && r <= 'z',
+			r >= 'A' && r <= 'Z',
+			r == '.',
+			r == '-',
+			r == '+':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('.')
+		}
+	}
+	return b.String()
 }
 
 // versionUpToDate parses versions and compares them.
