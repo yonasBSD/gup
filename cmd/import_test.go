@@ -245,8 +245,8 @@ func Test_installFromConfig_UseVersion(t *testing.T) {
 	if gotImportPath != "github.com/nao1215/gup" {
 		t.Fatalf("install import path = %s, want %s", gotImportPath, "github.com/nao1215/gup")
 	}
-	if gotVersion != "v1.0.0" {
-		t.Fatalf("install version = %s, want %s", gotVersion, "v1.0.0")
+	if gotVersion != testVersionOne {
+		t.Fatalf("install version = %s, want %s", gotVersion, testVersionOne)
 	}
 }
 

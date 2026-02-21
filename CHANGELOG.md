@@ -1,3 +1,14 @@
+## [v1.1.2](https://github.com/nao1215/gup/compare/v1.1.1...v1.1.2) (2026-02-20)
+
+### Fixes
+
+* Treat equal custom Go toolchain versions (e.g. `go1.26.0-X:nodwarf5`) as up-to-date in `check` and `update`
+* Normalize custom Go version separators for comparison and apply Go-aware comparison to version colorization
+
+### Tests
+
+* Add regression tests for custom Go toolchain tags across `internal/goutil`, `check`, and `update`, including output color behavior
+
 ## [v1.1.1](https://github.com/nao1215/gup/compare/v1.1.0...v1.1.1) (2026-02-16)
 
 ### Fixes

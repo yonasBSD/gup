@@ -77,3 +77,40 @@ func TestManPaths(t *testing.T) {
 		}
 	})
 }
+
+func TestMan(t *testing.T) {
+	if runtime.GOOS == goosWindows {
+		t.Skip("man command generation test is not supported on Windows")
+	}
+
+	t.Run("success with writable MANPATH man1 dir", func(t *testing.T) {
+		base := t.TempDir()
+		dst := filepath.Join(base, "man1")
+		if err := os.MkdirAll(dst, 0o750); err != nil {
+			t.Fatal(err)
+		}
+		t.Setenv("MANPATH", dst)
+
+		if got := man(nil, nil); got != 0 {
+			t.Fatalf("man() = %d, want 0", got)
+		}
+
+		manFiles, err := filepath.Glob(filepath.Join(dst, "*.1.gz"))
+		if err != nil {
+			t.Fatalf("glob failed: %v", err)
+		}
+		if len(manFiles) == 0 {
+			t.Fatal("no generated man page files found")
+		}
+	})
+
+	t.Run("failure when MANPATH target dir does not exist", func(t *testing.T) {
+		base := t.TempDir()
+		dst := filepath.Join(base, "not-created", "man1")
+		t.Setenv("MANPATH", dst)
+
+		if got := man(nil, nil); got != 1 {
+			t.Fatalf("man() = %d, want 1", got)
+		}
+	})
+}

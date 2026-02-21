@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/google/go-cmp/cmp"
 	"github.com/nao1215/gup/internal/config"
 	"github.com/nao1215/gup/internal/goutil"
@@ -24,6 +25,7 @@ import (
 )
 
 const testVersionZero = "v0.0.0"
+const testVersionOne = "v1.0.0"
 const testVersionNine = "v9.9.9"
 
 //nolint:gochecknoglobals // legacy stubs used by tests via init bridge.
@@ -885,7 +887,7 @@ func Test_update_modulePathChangedOnInstall(t *testing.T) {
 			ImportPath: oldImport,
 			ModulePath: newModule,
 			Version: &goutil.Version{
-				Current: "v1.0.0",
+				Current: testVersionOne,
 			},
 			GoVersion: &goutil.Version{
 				Current: "go1.22.4",
@@ -914,7 +916,7 @@ func Test_mergeConfigPackages(t *testing.T) {
 		{
 			Name:          "old-tool",
 			ImportPath:    "github.com/example/old-tool",
-			Version:       &goutil.Version{Current: "v1.0.0"},
+			Version:       &goutil.Version{Current: testVersionOne},
 			UpdateChannel: goutil.UpdateChannelLatest,
 		},
 		{
@@ -928,7 +930,7 @@ func Test_mergeConfigPackages(t *testing.T) {
 		{
 			Name:       "new-tool",
 			ImportPath: "github.com/example/new-tool",
-			Version:    &goutil.Version{Current: "v1.0.0", Latest: "v2.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne, Latest: "v2.0.0"},
 		},
 		// empty name/import should be skipped
 		{Name: "", ImportPath: ""},
@@ -1019,23 +1021,23 @@ func Test_persistedVersion(t *testing.T) {
 		{
 			name: "prefers latest over current",
 			pkg: goutil.Package{
-				Version: &goutil.Version{Current: "v1.0.0", Latest: "v2.0.0"},
+				Version: &goutil.Version{Current: testVersionOne, Latest: "v2.0.0"},
 			},
 			want: "v2.0.0",
 		},
 		{
 			name: "falls back to current when latest is unknown",
 			pkg: goutil.Package{
-				Version: &goutil.Version{Current: "v1.0.0", Latest: "unknown"},
+				Version: &goutil.Version{Current: testVersionOne, Latest: "unknown"},
 			},
-			want: "v1.0.0",
+			want: testVersionOne,
 		},
 		{
 			name: "falls back to current when latest is empty",
 			pkg: goutil.Package{
-				Version: &goutil.Version{Current: "v1.0.0", Latest: ""},
+				Version: &goutil.Version{Current: testVersionOne, Latest: ""},
 			},
-			want: "v1.0.0",
+			want: testVersionOne,
 		},
 		{
 			name: "returns latest when both empty",
@@ -1345,7 +1347,7 @@ func Test_updateWithChannels_emptyImportPath(t *testing.T) {
 			Name:       "tool",
 			ImportPath: "",
 			ModulePath: "github.com/example/tool",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
@@ -1360,14 +1362,14 @@ func Test_updateWithChannels_emptyImportPath(t *testing.T) {
 func Test_updateWithChannels_alreadyUpToDate(t *testing.T) {
 	origGetLatest := getLatestVer
 	defer func() { getLatestVer = origGetLatest }()
-	getLatestVer = func(string) (string, error) { return "v1.0.0", nil }
+	getLatestVer = func(string) (string, error) { return testVersionOne, nil }
 
 	pkgs := []goutil.Package{
 		{
 			Name:       "tool",
 			ImportPath: "github.com/example/tool",
 			ModulePath: "github.com/example/tool",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
@@ -1383,6 +1385,154 @@ func Test_updateWithChannels_alreadyUpToDate(t *testing.T) {
 	}
 }
 
+func Test_updateWithChannels_alreadyUpToDate_customGoBuildTag(t *testing.T) {
+	origGetLatest := getLatestVer
+	origInstallLatest := installLatest
+	origInstallMain := installMainOrMaster
+	origInstallByVersionUpd := installByVersionUpd
+	defer func() {
+		getLatestVer = origGetLatest
+		installLatest = origInstallLatest
+		installMainOrMaster = origInstallMain
+		installByVersionUpd = origInstallByVersionUpd
+	}()
+	getLatestVer = func(string) (string, error) { return testVersionOne, nil }
+
+	var installCalled atomic.Bool
+	installLatest = func(string) error {
+		installCalled.Store(true)
+		return nil
+	}
+	installMainOrMaster = func(string) error {
+		t.Fatal("installMainOrMaster should not be called")
+		return nil
+	}
+	installByVersionUpd = func(string, string) error {
+		t.Fatal("installByVersionUpd should not be called")
+		return nil
+	}
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "tool",
+			ImportPath: "github.com/example/tool",
+			ModulePath: "github.com/example/tool",
+			Version:    &goutil.Version{Current: testVersionOne},
+			GoVersion:  &goutil.Version{Current: "go1.26.0-X:nodwarf5", Latest: "go1.26.0-X:nodwarf5"},
+		},
+	}
+
+	channelMap := map[string]goutil.UpdateChannel{"tool": goutil.UpdateChannelLatest}
+	result, succeeded, _ := updateWithChannels(pkgs, false, false, 1, false, channelMap)
+
+	if err := pw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, pr); err != nil {
+		t.Fatal(err)
+	}
+	_ = pr.Close()
+
+	if result != 0 {
+		t.Fatalf("updateWithChannels() = %d, want 0", result)
+	}
+	if len(succeeded) != 1 {
+		t.Fatalf("succeeded = %d, want 1", len(succeeded))
+	}
+	if installCalled.Load() {
+		t.Fatal("installLatest should not be called for already-up-to-date package")
+	}
+	if strings.Contains(buf.String(), "()") {
+		t.Fatalf("unexpected empty diff output, got:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), "Already up-to-date") {
+		t.Fatalf("expected 'Already up-to-date' output, got:\n%s", buf.String())
+	}
+}
+
+func Test_updateWithChannels_customGoBuildTag_goVersionDiffColor(t *testing.T) {
+	oldNoColor := color.NoColor
+	color.NoColor = false
+	t.Cleanup(func() { color.NoColor = oldNoColor })
+
+	origGetLatest := getLatestVer
+	origInstallLatest := installLatest
+	origInstallMain := installMainOrMaster
+	origInstallByVersionUpd := installByVersionUpd
+	defer func() {
+		getLatestVer = origGetLatest
+		installLatest = origInstallLatest
+		installMainOrMaster = origInstallMain
+		installByVersionUpd = origInstallByVersionUpd
+	}()
+	getLatestVer = func(string) (string, error) { return testVersionOne, nil }
+	installLatest = func(string) error { return nil }
+	installMainOrMaster = func(string) error {
+		t.Fatal("installMainOrMaster should not be called")
+		return nil
+	}
+	installByVersionUpd = func(string, string) error {
+		t.Fatal("installByVersionUpd should not be called")
+		return nil
+	}
+
+	orgStdout := print.Stdout
+	orgStderr := print.Stderr
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = pw
+	print.Stderr = pw
+
+	pkgs := []goutil.Package{
+		{
+			Name:       "tool",
+			ImportPath: "github.com/example/tool",
+			ModulePath: "github.com/example/tool",
+			Version:    &goutil.Version{Current: testVersionOne},
+			GoVersion:  &goutil.Version{Current: "go1.25.0-X:nodwarf5", Latest: "go1.26.0-X:nodwarf5"},
+		},
+	}
+
+	channelMap := map[string]goutil.UpdateChannel{"tool": goutil.UpdateChannelLatest}
+	result, _, _ := updateWithChannels(pkgs, false, false, 1, false, channelMap)
+	if err := pw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	print.Stdout = orgStdout
+	print.Stderr = orgStderr
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, pr); err != nil {
+		t.Fatal(err)
+	}
+	_ = pr.Close()
+
+	if result != 0 {
+		t.Fatalf("updateWithChannels() = %d, want 0", result)
+	}
+	if !strings.Contains(buf.String(), color.YellowString("go1.25.0-X:nodwarf5")) {
+		t.Fatalf("expected current go version in yellow, got:\n%s", buf.String())
+	}
+	if !strings.Contains(buf.String(), color.GreenString("go1.26.0-X:nodwarf5")) {
+		t.Fatalf("expected latest go version in green, got:\n%s", buf.String())
+	}
+}
+
 func Test_updateWithChannels_emptyModulePath(t *testing.T) {
 	origInstallLatest := installLatest
 	defer func() { installLatest = origInstallLatest }()
@@ -1393,7 +1543,7 @@ func Test_updateWithChannels_emptyModulePath(t *testing.T) {
 			Name:       "tool",
 			ImportPath: "github.com/example/tool",
 			ModulePath: "",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
@@ -1417,7 +1567,7 @@ func Test_updateWithChannels_getLatestVerError(t *testing.T) {
 			Name:       "tool",
 			ImportPath: "github.com/example/tool",
 			ModulePath: "github.com/example/tool",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
@@ -1446,7 +1596,7 @@ func Test_updateWithChannels_masterChannel(t *testing.T) {
 			Name:       "tool",
 			ImportPath: "github.com/example/tool",
 			ModulePath: "github.com/example/tool",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
@@ -1519,7 +1669,7 @@ func Test_updateWithChannels_notify(t *testing.T) {
 			Name:       "tool",
 			ImportPath: "github.com/example/tool",
 			ModulePath: "github.com/example/tool",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
@@ -1547,7 +1697,7 @@ func Test_updateWithChannels_installError(t *testing.T) {
 			Name:       "tool",
 			ImportPath: "github.com/example/tool",
 			ModulePath: "github.com/example/tool",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
@@ -1584,7 +1734,7 @@ func Test_updateWithChannels_mainChannel(t *testing.T) {
 			Name:       "tool",
 			ImportPath: "github.com/example/tool",
 			ModulePath: "github.com/example/tool",
-			Version:    &goutil.Version{Current: "v1.0.0"},
+			Version:    &goutil.Version{Current: testVersionOne},
 			GoVersion:  &goutil.Version{Current: "go1.22.4", Latest: "go1.22.4"},
 		},
 	}
