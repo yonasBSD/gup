@@ -62,6 +62,7 @@ func removeLoop(gobin string, force bool, target []string) int {
 	result := 0
 	for _, v := range target {
 		orig := v
+		v = strings.TrimSpace(v)
 		// In Windows, $GOEXE is set to the ".exe" extension.
 		// The user-specified command name (arguments) may not have an extension.
 		execSuffix := normalizeExecSuffix(GOOS, os.Getenv("GOEXE"))
@@ -118,7 +119,12 @@ func hasSuffixFold(s, suffix string) bool {
 }
 
 func isSafeBinaryName(name string) bool {
-	if strings.TrimSpace(name) == "" {
+	origName := name
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return false
+	}
+	if origName != name {
 		return false
 	}
 	if filepath.IsAbs(name) {
@@ -128,6 +134,9 @@ func isSafeBinaryName(name string) bool {
 		return false
 	}
 	if strings.Contains(name, ":") {
+		return false
+	}
+	if name == "." || name == ".." {
 		return false
 	}
 	if filepath.Base(name) != name {

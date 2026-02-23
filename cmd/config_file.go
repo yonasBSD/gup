@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -80,7 +81,7 @@ func renameWithBackupSwap(src, dst string) error {
 	//nolint:gosec // src/dst are created by this process and not user-controlled.
 	if err = os.Rename(src, dst); err != nil {
 		if restoreErr := os.Rename(backupPath, dst); restoreErr != nil {
-			return fmt.Errorf("can't restore original file %s after failed update: %w", dst, restoreErr)
+			return errors.Join(err, fmt.Errorf("can't restore original file %s after failed update: %w", dst, restoreErr))
 		}
 		return err
 	}

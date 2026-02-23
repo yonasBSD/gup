@@ -233,6 +233,23 @@ func Test_removeLoop_windowsSuffixCaseInsensitive(t *testing.T) {
 	}
 }
 
+func Test_removeLoop_forceTrimmedName(t *testing.T) {
+	t.Parallel()
+
+	gobin := t.TempDir()
+	binaryPath := filepath.Join(gobin, "posixer")
+	if err := os.WriteFile(binaryPath, []byte("dummy"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+
+	if got := removeLoop(gobin, true, []string{"  posixer  "}); got != 0 {
+		t.Fatalf("removeLoop() = %v, want 0", got)
+	}
+	if fileutil.IsFile(binaryPath) {
+		t.Fatalf("binary should be removed: %s", binaryPath)
+	}
+}
+
 func Test_isSafeBinaryName(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
@@ -244,10 +261,13 @@ func Test_isSafeBinaryName(t *testing.T) {
 		{name: "with extension", input: "mytool.exe", want: true},
 		{name: "empty", input: "", want: false},
 		{name: "whitespace only", input: "   ", want: false},
+		{name: "leading and trailing whitespace", input: " mytool ", want: false},
 		{name: "absolute path", input: "/usr/bin/tool", want: false},
 		{name: "forward slash", input: "sub/tool", want: false},
 		{name: "backslash", input: `sub\tool`, want: false},
 		{name: "contains colon", input: "C:tool", want: false},
+		{name: "single dot", input: ".", want: false},
+		{name: "double dots", input: "..", want: false},
 		{name: "parent traversal", input: "../escape", want: false},
 	}
 	for _, tt := range tests {

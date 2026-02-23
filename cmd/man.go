@@ -49,7 +49,7 @@ func manPaths(manpathEnv string) []string {
 	}
 
 	paths := make([]string, 0)
-	for _, p := range strings.Split(manpathEnv, ":") {
+	for _, p := range filepath.SplitList(manpathEnv) {
 		p = filepath.Clean(strings.TrimSpace(p))
 		if p == "" || p == "." || !filepath.IsAbs(p) {
 			continue
@@ -111,6 +111,13 @@ func copyManpages(manFiles []string, dst string) error {
 }
 
 func copyOneManpage(file, dst string) (err error) {
+	outputPath := filepath.Clean(filepath.Join(dst, filepath.Base(file)+".gz"))
+	defer func() {
+		if err == nil {
+			print.Info("Generate " + outputPath)
+		}
+	}()
+
 	in, err := os.Open(file) //nolint:gosec // file comes from filepath.Glob, already cleaned by caller
 	if err != nil {
 		return err
@@ -122,7 +129,7 @@ func copyOneManpage(file, dst string) (err error) {
 	}()
 
 	//nolint:gosec // destination is chosen by the user and filename comes from filepath.Base.
-	out, err := os.Create(filepath.Clean(filepath.Join(dst, filepath.Base(file)+".gz")))
+	out, err := os.Create(outputPath)
 	if err != nil {
 		return err
 	}
@@ -140,7 +147,6 @@ func copyOneManpage(file, dst string) (err error) {
 		}
 	}()
 
-	print.Info("Generate " + out.Name())
 	_, err = io.Copy(gz, in)
 	return err
 }

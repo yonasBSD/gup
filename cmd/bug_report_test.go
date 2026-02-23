@@ -79,3 +79,40 @@ func Test_bugReport_fallbackVersion(t *testing.T) {
 		t.Errorf("bugReport() = %d; want %d", gotReturnVal, 0)
 	}
 }
+
+func Test_bugReport_fallbackOutput(t *testing.T) {
+	t.Parallel()
+
+	cmd := newBugReportCmd()
+	cmd.Version = "v9.9.9"
+
+	orgStdout := os.Stdout
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdout = pw
+	t.Cleanup(func() {
+		os.Stdout = orgStdout
+	})
+
+	if got := bugReport(cmd, nil, func(string) bool { return false }); got != 0 {
+		t.Fatalf("bugReport() = %d, want 0", got)
+	}
+	if err := pw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	body, err := io.ReadAll(pr)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gotOutput := string(body)
+	if !strings.Contains(gotOutput, "Please file a new issue at https://github.com/nao1215/gup/issues/new using this template:") {
+		t.Fatalf("fallback guide is missing: %s", gotOutput)
+	}
+	if !strings.Contains(gotOutput, "## gup version\nv9.9.9\n") {
+		t.Fatalf("version template is missing: %s", gotOutput)
+	}
+}
