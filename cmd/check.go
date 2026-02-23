@@ -56,7 +56,7 @@ func check(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 
-	pkgs, err := getPackageInfo()
+	pkgs, err := getPackageInfoByTargets(args)
 	if err != nil {
 		print.Err(err)
 		return 1
