@@ -30,6 +30,8 @@
 - Windows
 
 ## Как установить
+gup уже доступен через `winget`, `mise` и `nix` помимо `go install` и Homebrew.
+
 ### Использовать "go install"
 Если на вашей системе не установлена среда разработки golang, пожалуйста, установите golang с [официального сайта golang](https://go.dev/doc/install).
 ```
@@ -41,9 +43,19 @@ go install github.com/nao1215/gup@latest
 brew install nao1215/gup
 ```
 
+### Использовать winget (Windows)
+```shell
+winget install --id nao1215.gup
+```
+
 ### Использовать mise-en-place
 ```shell
 mise use -g gup@latest
+```
+
+### Использовать nix (профиль Nix)
+```shell
+nix profile install nixpkgs#gogup
 ```
 
 ### Установка из пакета или бинарного файла

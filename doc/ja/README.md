@@ -30,6 +30,8 @@ oh-my-zshを使用している場合、gupにはエイリアスが設定され�
 - Windows
 
 ## インストール方法
+gup は `go install` と Homebrew に加えて、`winget`、`mise`、`nix` からもインストールできます。
+
 ### "go install"を使用
 システムにGolang開発環境がインストールされていない場合は、[Golang公式サイト](https://go.dev/doc/install)からGolangをインストールしてください。
 ```
@@ -41,9 +43,19 @@ go install github.com/nao1215/gup@latest
 brew install nao1215/gup
 ```
 
+### wingetを使用（Windows）
+```shell
+winget install --id nao1215.gup
+```
+
 ### mise-en-placeを使用
 ```shell
 mise use -g gup@latest
+```
+
+### nixを使用（Nix profile）
+```shell
+nix profile install nixpkgs#gogup
 ```
 
 ### パッケージまたはバイナリからインストール

@@ -30,6 +30,8 @@ If you are using oh-my-zsh, then gup has an alias set up. The alias is `gup - gi
 - Windows
 
 ## How to install
+gup is already available via `winget`, `mise`, and `nix` in addition to `go install` and Homebrew.
+
 ### Use "go install"
 If you do not have the Go development environment installed on your system, please install it from the [official website](https://go.dev/doc/install).
 ```
@@ -41,9 +43,19 @@ go install github.com/nao1215/gup@latest
 brew install nao1215/gup
 ```
 
+### Use winget (Windows)
+```shell
+winget install --id nao1215.gup
+```
+
 ### Use mise-en-place
 ```shell
 mise use -g gup@latest
+```
+
+### Use nix (Nix profile)
+```shell
+nix profile install nixpkgs#gogup
 ```
 
 ### Install from Package or Binary
