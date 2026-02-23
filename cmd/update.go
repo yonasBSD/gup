@@ -103,7 +103,7 @@ func gup(cmd *cobra.Command, args []string) int {
 		return 1
 	}
 
-	pkgs, err := getPackageInfo()
+	pkgs, err := getPackageInfoByTargets(args)
 	if err != nil {
 		print.Err(err)
 		return 1
@@ -621,6 +621,43 @@ func getPackageInfo() ([]goutil.Package, error) {
 	}
 
 	return goutil.GetPackageInformation(binList), nil
+}
+
+func getPackageInfoByTargets(targets []string) ([]goutil.Package, error) {
+	binList, err := getBinaryPathList()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", "can't get package info", err)
+	}
+
+	filtered := filterBinaryPathListByTargets(binList, targets)
+	return goutil.GetPackageInformation(filtered), nil
+}
+
+func filterBinaryPathListByTargets(binList, targets []string) []string {
+	if len(targets) == 0 {
+		return binList
+	}
+
+	targetSet := make(map[string]struct{}, len(targets))
+	for _, rawTarget := range targets {
+		target := normalizeBinaryNameForMatch(rawTarget)
+		if target == "" {
+			continue
+		}
+		targetSet[target] = struct{}{}
+	}
+	if len(targetSet) == 0 {
+		return []string{}
+	}
+
+	filtered := make([]string, 0, len(targetSet))
+	for _, path := range binList {
+		base := normalizeBinaryNameForMatch(filepath.Base(path))
+		if _, ok := targetSet[base]; ok {
+			filtered = append(filtered, path)
+		}
+	}
+	return filtered
 }
 
 func extractUserSpecifyPkg(pkgs []goutil.Package, targets []string) []goutil.Package {

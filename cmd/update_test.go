@@ -271,6 +271,43 @@ func Test_extractUserSpecifyPkg_dedupNotFoundWarnings(t *testing.T) {
 	}
 }
 
+func Test_filterBinaryPathListByTargets(t *testing.T) {
+	t.Parallel()
+
+	binList := []string{
+		filepath.Join("tmp", "gopls"),
+		filepath.Join("tmp", "dlv"),
+		filepath.Join("tmp", "air"),
+	}
+
+	got := filterBinaryPathListByTargets(binList, []string{"  dlv  ", "missing"})
+	want := []string{filepath.Join("tmp", "dlv")}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("value is mismatch (-want +got):\n%s", diff)
+	}
+
+	got = filterBinaryPathListByTargets(binList, nil)
+	if diff := cmp.Diff(binList, got); diff != "" {
+		t.Fatalf("value is mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func Test_filterBinaryPathListByTargets_windowsExe(t *testing.T) {
+	if runtime.GOOS != goosWindows {
+		t.Skip("windows only")
+	}
+
+	binList := []string{
+		filepath.Join("tmp", "gopls.exe"),
+		filepath.Join("tmp", "dlv.exe"),
+	}
+	got := filterBinaryPathListByTargets(binList, []string{"GOPLS"})
+	want := []string{filepath.Join("tmp", "gopls.exe")}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Fatalf("value is mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func Test_completePathBinaries_prefix(t *testing.T) {
 	if runtime.GOOS == goosWindows {
 		t.Setenv("GOBIN", filepath.Join("testdata", "check_success_for_windows"))

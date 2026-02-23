@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"time"
 )
@@ -14,5 +15,13 @@ var runBrowserCommand = func(command string, args ...string) error { //nolint:go
 	defer cancel()
 
 	// Command names are hard-coded in openBrowser and URL is internally generated.
-	return exec.CommandContext(ctx, command, args...).Run() //nolint:gosec
+	return browserCommandError(exec.CommandContext(ctx, command, args...).Run()) //nolint:gosec
+}
+
+func browserCommandError(err error) error {
+	if errors.Is(err, context.DeadlineExceeded) {
+		// open/xdg-open may keep running for a while after successfully launching.
+		return nil
+	}
+	return err
 }
