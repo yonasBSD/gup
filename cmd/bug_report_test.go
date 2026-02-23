@@ -80,9 +80,8 @@ func Test_bugReport_fallbackVersion(t *testing.T) {
 	}
 }
 
+//nolint:paralleltest // This test temporarily replaces os.Stdout.
 func Test_bugReport_fallbackOutput(t *testing.T) {
-	t.Parallel()
-
 	cmd := newBugReportCmd()
 	cmd.Version = "v9.9.9"
 

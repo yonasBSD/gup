@@ -237,7 +237,11 @@ func Test_removeLoop_forceTrimmedName(t *testing.T) {
 	t.Parallel()
 
 	gobin := t.TempDir()
-	binaryPath := filepath.Join(gobin, "posixer")
+	binaryName := "posixer"
+	if GOOS == goosWindows {
+		binaryName += normalizeExecSuffix(GOOS, os.Getenv("GOEXE"))
+	}
+	binaryPath := filepath.Join(gobin, binaryName)
 	if err := os.WriteFile(binaryPath, []byte("dummy"), 0o700); err != nil {
 		t.Fatal(err)
 	}
