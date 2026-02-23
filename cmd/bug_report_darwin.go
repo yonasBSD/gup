@@ -2,10 +2,6 @@
 
 package cmd
 
-import (
-	"os/exec"
-)
-
 func openBrowser(targetURL string) bool {
-	return exec.Command("open", targetURL).Start() == nil
+	return runBrowserCommand("open", targetURL) == nil
 }

@@ -247,6 +247,7 @@ func Test_isSafeBinaryName(t *testing.T) {
 		{name: "absolute path", input: "/usr/bin/tool", want: false},
 		{name: "forward slash", input: "sub/tool", want: false},
 		{name: "backslash", input: `sub\tool`, want: false},
+		{name: "contains colon", input: "C:tool", want: false},
 		{name: "parent traversal", input: "../escape", want: false},
 	}
 	for _, tt := range tests {

@@ -87,6 +87,7 @@ func removeLoop(gobin string, force bool, target []string) int {
 			}
 		}
 
+		//nolint:gosec // target is constrained to a file name under gobin by isSafeBinaryName.
 		if err := os.Remove(target); err != nil {
 			print.Err(err)
 			result = 1
@@ -124,6 +125,9 @@ func isSafeBinaryName(name string) bool {
 		return false
 	}
 	if strings.ContainsAny(name, `/\`) {
+		return false
+	}
+	if strings.Contains(name, ":") {
 		return false
 	}
 	if filepath.Base(name) != name {

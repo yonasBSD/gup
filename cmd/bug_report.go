@@ -52,7 +52,7 @@ Expected behavior.
 Any other useful data to share.
 `
 	)
-	buf.WriteString(fmt.Sprintf("## gup version\n%s\n\n", version))
+	_, _ = fmt.Fprintf(&buf, "## gup version\n%s\n\n", version)
 	buf.WriteString(description)
 	buf.WriteString(toReproduce)
 	buf.WriteString(expectedBehavior)
