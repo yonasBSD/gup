@@ -57,28 +57,29 @@ var FmtScanln = fmt.Scanln //nolint:gochecknoglobals
 
 // Question displays the question in the terminal and receives an answer from the user.
 func Question(ask string) bool {
-	var response string
+	for {
+		var response string
 
-	_, _ = fmt.Fprintf(Stdout, "%s:%s: %s",
-		cmdinfo.Name, color.GreenString("CHECK"), ask+" [Y/n] ")
-	_, err := FmtScanln(&response)
-	if err != nil {
-		// If user input only enter, [Y/n] syntax is commonly used to denote that
-		// "yes" is the default.
-		// https://github.com/nao1215/gup/issues/146
-		if strings.Contains(err.Error(), "expected newline") {
-			return true
+		_, _ = fmt.Fprintf(Stdout, "%s:%s: %s",
+			cmdinfo.Name, color.GreenString("CHECK"), ask+" [Y/n] ")
+		_, err := FmtScanln(&response)
+		if err != nil {
+			// If user input only enter, [Y/n] syntax is commonly used to denote that
+			// "yes" is the default.
+			// https://github.com/nao1215/gup/issues/146
+			if strings.Contains(err.Error(), "expected newline") {
+				return true
+			}
+			fmt.Fprint(os.Stderr, err.Error())
+			return false
 		}
-		fmt.Fprint(os.Stderr, err.Error())
-		return false
-	}
 
-	switch strings.ToLower(response) {
-	case "y", "yes":
-		return true
-	case "n", "no":
-		return false
-	default:
-		return Question(ask)
+		switch strings.ToLower(response) {
+		case "y", "yes":
+			return true
+		case "n", "no":
+			return false
+		default:
+		}
 	}
 }
