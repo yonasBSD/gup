@@ -16,7 +16,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/hashicorp/go-version"
-	"github.com/nao1215/gup/internal/fileutil"
 	"github.com/nao1215/gup/internal/print"
 	"github.com/pkg/errors"
 )
@@ -475,12 +474,10 @@ func BinaryPathList(path string) ([]string, error) {
 		if e.IsDir() {
 			continue
 		}
-
-		path := filepath.Join(path, e.Name())
-		if fileutil.IsHiddenFile(path) {
+		if strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
-		list = append(list, path)
+		list = append(list, filepath.Join(path, e.Name()))
 	}
 	return list, nil
 }
