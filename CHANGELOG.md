@@ -1,3 +1,26 @@
+## [v1.1.3](https://github.com/nao1215/gup/compare/v1.1.2...v1.1.3) (2026-02-23)
+
+### Fixes
+
+* Harden browser launch behavior in `bug-report` with command timeout/wait handling
+* Make interactive confirmation flow iterative and robust against repeated invalid input
+* Strengthen `remove` target validation and normalization (including Windows-specific suffix handling)
+* Improve `man` generation success logging and config swap error reporting in failure recovery paths
+* Fix Windows `remove` regression test expectation and resolve `-race` failure in `bug-report` fallback output test
+
+### Build
+
+* Bump `goreleaser/goreleaser-action` from v6 to v7
+
+### Docs
+
+* Highlight installation availability via winget, mise, and nix
+
+### Tests
+
+* Add and expand regression tests for browser launcher behavior, remove target edge cases, and fallback output handling
+* Keep overall statement coverage from dropping while adding the new hardening changes
+
 ## [v1.1.2](https://github.com/nao1215/gup/compare/v1.1.1...v1.1.2) (2026-02-20)
 
 ### Fixes
