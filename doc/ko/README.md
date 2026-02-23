@@ -30,6 +30,8 @@ oh-my-zsh를 사용하는 경우 gup에는 별칭이 설정되어 있습니다. 
 - Windows
 
 ## 설치 방법
+gup은 `go install`과 Homebrew 외에도 `winget`, `mise`, `nix`로 바로 설치할 수 있습니다.
+
 ### "go install" 사용
 시스템에 golang 개발 환경이 설치되어 있지 않은 경우, [golang 공식 웹사이트](https://go.dev/doc/install)에서 golang을 설치하세요.
 ```
@@ -41,9 +43,19 @@ go install github.com/nao1215/gup@latest
 brew install nao1215/gup
 ```
 
+### winget 사용 (Windows)
+```shell
+winget install --id nao1215.gup
+```
+
 ### mise-en-place 사용
 ```shell
 mise use -g gup@latest
+```
+
+### nix 사용 (Nix profile)
+```shell
+nix profile install nixpkgs#gogup
 ```
 
 ### 패키지 또는 바이너리에서 설치

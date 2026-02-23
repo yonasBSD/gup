@@ -30,6 +30,8 @@
 - Windows
 
 ## 如何安装
+除 `go install` 和 Homebrew 外，gup 也已可通过 `winget`、`mise` 和 `nix` 安装。
+
 ### 使用"go install"
 如果您的系统上没有安装 golang 开发环境，请从 [golang 官方网站](https://go.dev/doc/install)安装 golang。
 ```
@@ -41,9 +43,19 @@ go install github.com/nao1215/gup@latest
 brew install nao1215/gup
 ```
 
+### 使用 winget（Windows）
+```shell
+winget install --id nao1215.gup
+```
+
 ### 使用 mise-en-place
 ```shell
 mise use -g gup@latest
+```
+
+### 使用 nix（Nix profile）
+```shell
+nix profile install nixpkgs#gogup
 ```
 
 ### 从包或二进制文件安装
